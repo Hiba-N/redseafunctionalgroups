@@ -1,8 +1,14 @@
 # Load libraries
-install.packages('rfishbase') #fishbase access
-install.packages('tidyverse') #data cleaning and joining
-install.packages('janitor') #data cleaning
-install.packages('knitr') #displaying data tables
+#install.packages('rfishbase') #fishbase access
+#install.packages('tidyverse') #data cleaning and joining
+#install.packages('janitor') #data cleaning
+#install.packages('knitr') #displaying data tables
+
+
+# ============================================================
+# LOAD PACKAGES
+# ============================================================
+
 library(rfishbase)
 library(tidyverse)
 library(janitor)
@@ -10,31 +16,63 @@ library(knitr)
 library(dplyr)
 
 
-###Checking out tables######
+# ============================================================
+# CHECKING OUT FISHBASE TABLES
+# ============================================================
+
 fb_tables()
 
-#checking out single tables
+# Checking a single table
 aquamaps <- fb_tbl("aquamaps")
 
-#checking table columns
+# Checking table columns
 cols <- colnames(aquamaps)
 cols
 
-#get all species in the red sea
-red_sea_fish <- species_by_ecosystem(
-  ecosystem = "Red Sea"
-)%>% 
-  janitor::clean_names()
 
+# ============================================================
+# FUNCTION: LOAD AND STANDARDIZE FISHBASE TABLE
+# ============================================================
 
-#defining table loading function
 load_fb_table <- function(table_name) {
+  
   fb_tbl(table_name) %>%
-    janitor::clean_names()
+    janitor::clean_names() %>%
+    rename(
+      spec_code = any_of(c("spec_code", "speccode")),
+      stock_code = any_of(c("stock_code", "stockcode"))
+    )
 }
 
 
-#loading required tables
+# ============================================================
+# GET ALL SPECIES / STOCKS IN THE RED SEA
+# ============================================================
+
+red_sea_fish <- species_by_ecosystem(
+  ecosystem = "Red Sea"
+) %>%
+  janitor::clean_names() %>%
+  rename(
+    spec_code = any_of(c("spec_code", "speccode")),
+    stock_code = any_of(c("stock_code", "stockcode"))
+  )
+
+
+# Check Red Sea keys
+if (!"spec_code" %in% names(red_sea_fish)) {
+  stop("red_sea_fish does not contain spec_code")
+}
+
+if (!"stock_code" %in% names(red_sea_fish)) {
+  stop("red_sea_fish does not contain stock_code")
+}
+
+
+# ============================================================
+# LOAD REQUIRED TABLES
+# ============================================================
+
 species <- load_fb_table("species")
 ecology <- load_fb_table("ecology")
 reproduction <- load_fb_table("reproduc")
@@ -46,7 +84,9 @@ popgrowth <- load_fb_table("popgrowth")
 popr <- load_fb_table("pop_r")
 
 
-#shortlisting columns from tables
+# ============================================================
+# SHORTLIST COLUMNS FROM TABLES
+# ============================================================
 
 species_traits <- species %>%
   select(
@@ -74,9 +114,11 @@ species_traits <- species %>%
     electrogenic
   )
 
+
 ecology_traits <- ecology %>%
   select(
     spec_code,
+    stock_code,
     
     # Feeding / trophic
     herbivory2,
@@ -151,9 +193,11 @@ ecology_traits <- ecology %>%
     deep_water_corals
   )
 
+
 reproduction_traits <- reproduction %>%
   select(
     spec_code,
+    stock_code,
     repro_mode,
     fertilization,
     mating_system,
@@ -166,6 +210,7 @@ reproduction_traits <- reproduction %>%
     parental_care,
     rep_aquarium
   )
+
 
 stocks_traits <- stocks %>%
   select(
@@ -184,20 +229,28 @@ stocks_traits <- stocks %>%
 
 eggs_traits <- eggs %>%
   select(
-    speccode,
-    placeofdev)
+    spec_code,
+    stock_code,
+    placeofdev
+  )
+
 
 morphdat_traits <- morphdat %>%
   select(
-    speccode,
+    spec_code,
+    stock_code,
     typeof_eyes,
     posof_mouth,
-    c_shape)
+    c_shape
+  )
+
 
 swimming_traits <- swimming %>%
   select(
     spec_code,
-    adult_type)
+    adult_type
+  )
+
 
 popgrowth_traits <- popgrowth %>%
   select(
@@ -215,9 +268,16 @@ popr_traits <- popr %>%
     r
   )
 
-#function to intersect with red sea fishes table
 
-make_red_sea_traits <- function(trait_table, by, select_cols = "spec_code") {
+# ============================================================
+# FUNCTION: INTERSECT WITH RED SEA FISH
+# ============================================================
+
+make_red_sea_traits <- function(
+    trait_table,
+    by,
+    select_cols = "spec_code"
+) {
   
   red_sea_fish %>%
     select(all_of(select_cols)) %>%
@@ -228,103 +288,108 @@ make_red_sea_traits <- function(trait_table, by, select_cols = "spec_code") {
     )
 }
 
-#shortlisting tables with species from the red sea only
 
+# ============================================================
+# CREATE RED SEA TRAIT TABLES
+# ============================================================
+
+# Species-level
 red_sea_species_traits <- make_red_sea_traits(
   species_traits,
   by = "spec_code"
 )
 
+
+# Stock-level
 red_sea_ecology_traits <- make_red_sea_traits(
   ecology_traits,
   by = "spec_code"
 )
+
 
 red_sea_reproduction_traits <- make_red_sea_traits(
   reproduction_traits,
   by = "spec_code"
 )
 
+
 red_sea_eggs_traits <- make_red_sea_traits(
   eggs_traits,
-  by = c("spec_code" = "speccode")
+  by = "spec_code"
 )
+
 
 red_sea_morphdat_traits <- make_red_sea_traits(
   morphdat_traits,
-  by = c("spec_code" = "speccode")
+  by = "spec_code"
 )
+
 
 red_sea_stocks_traits <- make_red_sea_traits(
   stocks_traits,
-  by = c("stockcode" = "stock_code"),
-  select_cols = "stockcode"
+  by = "stock_code",
+  select_cols = "stock_code"
 )
 
+
+# Species-level
 red_sea_swimming_traits <- make_red_sea_traits(
   swimming_traits,
   by = "spec_code"
 )
 
+
+# Population tables
 red_sea_popgrowth_traits <- make_red_sea_traits(
   popgrowth_traits,
-  by = c(
-    "spec_code" = "spec_code",
-    "stockcode" = "stock_code"
-  ),
-  select_cols = c("spec_code", "stockcode")
+  by = c("spec_code", "stock_code"),
+  select_cols = c("spec_code", "stock_code")
 )
+
 
 red_sea_popr_traits <- make_red_sea_traits(
   popr_traits,
-  by = c(
-    "spec_code" = "spec_code",
-    "stockcode" = "stock_code"
-  ),
-  select_cols = c("spec_code", "stockcode")
+  by = c("spec_code", "stock_code"),
+  select_cols = c("spec_code", "stock_code")
 )
 
 
-#for population tables, averaging across observations as well
+# ============================================================
+# FUNCTION: AVERAGE MULTIPLE OBSERVATIONS WITHIN STOCK
+# ============================================================
 
-red_sea_popgrowth_traits <- red_sea_fish %>%
-  select(spec_code, stockcode) %>%
-  distinct() %>%
-  left_join(
-    popgrowth_traits,
-    by = c(
-      "spec_code" = "spec_code",
-      "stockcode" = "stock_code"
+average_stock_observations <- function(trait_table) {
+  
+  trait_table %>%
+    group_by(spec_code, stock_code) %>%
+    summarise(
+      across(
+        where(is.numeric),
+        ~ if (all(is.na(.x))) {
+          NA_real_
+        } else {
+          mean(.x, na.rm = TRUE)
+        }
+      ),
+      .groups = "drop"
     )
-  ) %>%
-  group_by(spec_code, stockcode) %>%
-  summarise(
-    across(
-      where(is.numeric),
-      ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)
-    ),
-    .groups = "drop"
-  )
+}
 
 
-red_sea_popr_traits <- red_sea_fish %>%
-  select(spec_code, stockcode) %>%
-  distinct() %>%
-  left_join(
-    popr_traits,
-    by = c(
-      "spec_code" = "spec_code",
-      "stockcode" = "stock_code"
-    )
-  ) %>%
-  group_by(spec_code, stockcode) %>%
-  summarise(
-    across(
-      where(is.numeric),
-      ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)
-    ),
-    .groups = "drop"
-  )
+# ============================================================
+# AVERAGE POPULATION TABLE OBSERVATIONS
+# ============================================================
+
+red_sea_popgrowth_traits <- red_sea_popgrowth_traits %>%
+  average_stock_observations()
+
+
+red_sea_popr_traits <- red_sea_popr_traits %>%
+  average_stock_observations()
+
+
+
+
 
 #save all tables
 
