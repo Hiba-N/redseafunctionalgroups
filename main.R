@@ -13,9 +13,34 @@ load_tables(tables)
 #standardize tables
 standardize_tableids(tables)
 
+#get red sea fish
+red_sea_fish <- get_ecosystem_fish("Red Sea")
+
+#intersect tables with fish from red sea
+redsea_tables <- intersect_redsea_tables(
+  red_sea_fish = red_sea_fish,
+  tables = tables
+)
+
+#continue processing only with tables that have around 1080 (75 pec) of entries left
+
+#for tables with repeating spec + stock codes take averages
+average_tables(TABLES_TO_AVERAGE)
+check_duplicate_spec_codes(TABLES_TO_MERGE)
+
+#continue with tables that have at least 700 rows left for now
+
+#merge all tables on the basis of spec code 
+red_sea_final <- merge_redsea_tables(
+  red_sea_fish,
+  TABLES_TO_MERGE
+)
+
+
+
 #shortlist columns
 
-#intersect with red sea fishes
+
 
 #save individual files
 
