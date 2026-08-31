@@ -75,3 +75,51 @@ TABLES_TO_MERGE <- c(
   "redsea_species",
   "redsea_stocks"
 )
+
+THRESHOLD <- 25
+
+META_COLUMNS_TO_REMOVE <- c(
+  "E_CODE",
+  "autoctr",
+  "EcosystemRefno",
+  "Remarks",
+  "Entered",
+  "Dateentered",
+  "Modified",
+  "Datemodified",
+  "LastModified_estimate",
+  "ID_matrix",
+  "FamCode_matrix",
+  "Linf_comment_matrix",
+  "autoctr_morphdat",
+  "stock_code_matrix",
+  "stock_code_morphdat",
+  "Entered_morphdat",
+  "DateEntered_morphdat",
+  "DateModified_morphdat",
+  "autoctr_morphmet",
+  "PicName_morphmet",
+  "Species_species",
+  "Author_species",
+  "PicPreferredName_species",
+  "FamCode_species",
+  "GenCode_species",
+  "GoogleImage_species",
+  "Entered_species",
+  "DateEntered_species",
+  "Modified_species",
+  "DateModified_species",
+  "stock_code_stocks",
+  "SynOC_stocks",
+  "Level_stocks",
+  "IUCN_Code_stocks",
+  "IUCN_DateAssessed_stocks",
+  "Entered_stocks",
+  "DateEntered_stocks",
+  "Modified_stocks",
+  "DateModified_stocks",
+  "Reproductive_guild_matrix"
+)
+
+# Values to treat as missing
+MISSING_VALUES <- c("", "unknown", "NA")

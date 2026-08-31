@@ -36,18 +36,21 @@ red_sea_final <- merge_redsea_tables(
   TABLES_TO_MERGE
 )
 
+#find pec missing in each column
+na_percentages <- calculate_na_percentage(red_sea_final)
+na_percentages
 
+#remove columns with greater than 25 missing data
+red_sea_final <- remove_high_na_columns(
+  red_sea_final,
+  threshold = THRESHOLD
+)
 
-#shortlist columns
+#deleting uneccessary columns (such as metadata) except for reference columns
+red_sea_final <- remove_meta_columns(
+  red_sea_final,
+  META_COLUMNS_TO_REMOVE
+)
 
-
-
-#save individual files
-
-#find missing values using inter stock values
-
-#merge all tables
-
-#save collective file
-
-
+# Calculate missing percentage for all columns
+missing_data <- calculate_missing_percentage(red_sea_final)

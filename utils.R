@@ -1,3 +1,5 @@
+library(rfishbase)
+
 #all tables
 fb_tables()
 
@@ -338,6 +340,24 @@ merge_redsea_tables <- function(red_sea_fish, tables_to_merge) {
       next
     }
     
+    # Get table name without "redsea_"
+    suffix <- sub(
+      "^redsea_",
+      "",
+      table_name
+    )
+    
+    # Append table name to all columns except spec_code
+    names(df) <- ifelse(
+      names(df) == "spec_code",
+      "spec_code",
+      paste0(
+        names(df),
+        "_",
+        suffix
+      )
+    )
+    
     # Merge using spec_code
     merged_data <- merged_data |>
       dplyr::left_join(
@@ -373,4 +393,77 @@ check_duplicate_spec_codes <- function(tables) {
   }
   
   invisible(NULL)
+}
+
+calculate_na_percentage <- function(df) {
+  
+  na_percentage <- sapply(
+    df,
+    function(x) {
+      mean(is.na(x)) * 100
+    }
+  )
+  
+  na_percentage <- data.frame(
+    column = names(na_percentage),
+    na_percentage = as.numeric(na_percentage),
+    row.names = NULL
+  )
+  
+  return(na_percentage)
+}
+
+remove_high_na_columns <- function(df, threshold = 25) {
+  
+  na_percentage <- calculate_na_percentage(df)
+  
+  columns_to_remove <- na_percentage$column[
+    na_percentage$na_percentage > threshold
+  ]
+  
+  df <- df |>
+    dplyr::select(
+      -dplyr::all_of(columns_to_remove)
+    )
+  
+  return(df)
+}
+
+remove_meta_columns <- function(df, columns_to_remove) {
+  
+  df <- df |>
+    dplyr::select(
+      -dplyr::any_of(columns_to_remove)
+    )
+  
+  return(df)
+}
+
+calculate_missing_percentage <- function(df) {
+  
+  missing_values <- tolower(MISSING_VALUES)
+  
+  missing_percentages <- sapply(df, function(x) {
+    
+    # Convert to character for consistent comparison
+    x_char <- trimws(tolower(as.character(x)))
+    
+    # Count NA, empty cells, or specified missing values
+    missing <- is.na(x) | x_char %in% missing_values
+    
+    # Calculate percentage
+    mean(missing) * 100
+  })
+  
+  # Create output table
+  result <- data.frame(
+    column = names(missing_percentages),
+    missing_percentage = as.numeric(missing_percentages),
+    row.names = NULL
+  )
+  
+  # Print all column data
+  print(result)
+  
+  return(result)
 }
