@@ -3,8 +3,8 @@ library(tidyverse)
 library(janitor)
 library(knitr)
 library(dplyr)
-source("utils.R")
-source("constants.R")
+source("utils/utils.R")
+source("constants/constants.R")
 
 
 #load tables
@@ -54,3 +54,12 @@ red_sea_final <- remove_meta_columns(
 
 # Calculate missing percentage for all columns
 missing_data <- calculate_missing_percentage(red_sea_final)
+
+trait_table <- create_trait_table(
+  red_sea_final,
+  selected_traits
+)
+
+missing_data <- calculate_missing_percentage(trait_table)
+
+names(trait_table)

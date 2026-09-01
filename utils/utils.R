@@ -113,7 +113,7 @@ get_ecosystem_fish <- function(ecosystem) {
     
   }
   
-  fish <- standardize_tableids(red_sea_fish)
+  fish <- standardize_tableids(fish)
   
   return(fish)
 }
