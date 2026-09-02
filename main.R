@@ -5,6 +5,11 @@ library(knitr)
 library(dplyr)
 source("utils/utils.R")
 source("constants/constants.R")
+source("constants/model_constants.R")
+library(readr)
+library(writexl)
+source("utils/models.R")
+
 
 
 #load tables
@@ -62,4 +67,98 @@ trait_table <- create_trait_table(
 
 missing_data <- calculate_missing_percentage(trait_table)
 
-names(trait_table)
+
+variable_types <- get_variable_types(
+  trait_table %>%
+    select(
+      all_of(target_columns)
+    )
+)
+
+print(n=31, variable_types)
+
+
+#knn
+
+results <- run_knn_experiments(
+  data = trait_table,
+  target_columns = target_columns,
+  k_values = kvalues,
+  weighted_values = weighted_values,
+  mask_proportions = mask_proportions,
+  seeds = seeds
+)
+
+
+print(results)
+
+
+# ------------------------------------------------------------
+# 10. Save detailed results
+# ------------------------------------------------------------
+
+write_csv(
+  results,
+  "results/knn_validation_results.csv"
+)
+
+
+# ------------------------------------------------------------
+# 11. Compare parameter combinations
+# ------------------------------------------------------------
+
+best_parameters <- select_best_knn(
+  results
+)
+
+print(best_parameters)
+
+
+# ------------------------------------------------------------
+# 12. Save parameter comparison
+# ------------------------------------------------------------
+
+write_csv(
+  best_parameters,
+  "results/knn_parameter_comparison.csv"
+)
+
+
+# ------------------------------------------------------------
+# 13. Show best parameter combination
+# ------------------------------------------------------------
+
+best <- best_parameters %>%
+  slice(1)
+
+print(best)
+
+
+# ------------------------------------------------------------
+# 14. Final kNN imputation
+# ------------------------------------------------------------
+
+final_data <- knn_impute(
+  
+  data = trait_table,
+  
+  target_columns = target_columns,
+  
+  k = best$k,
+  
+  weighted = best$weighted
+)
+
+
+# ------------------------------------------------------------
+# 15. Save final imputed dataset
+# ------------------------------------------------------------
+
+write_csv(
+  final_data,
+  "results/red_sea_fish_knn_imputed.csv"
+)
+
+
+
+
