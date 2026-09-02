@@ -1,4 +1,5 @@
 library(rfishbase)
+library(ggplot2)
 
 #all tables
 fb_tables()
@@ -501,8 +502,73 @@ map_missing_values <- function(df, column_a, column_b) {
 
 
 
+# Plot distribution of continuous variables
+plot_continuous_distributions <- function(data,
+                                          columns = NULL,
+                                          bins = 30) {
+  
+  library(ggplot2)
+  
+  # If no columns supplied, use all numeric columns
+  if (is.null(columns)) {
+    columns <- names(data)[sapply(data, is.numeric)]
+  }
+  
+  for (col in columns) {
+    
+    p <- ggplot(data, aes(x = .data[[col]])) +
+      geom_histogram(
+        bins = bins,
+        na.rm = TRUE
+      ) +
+      labs(
+        title = paste("Distribution of", col),
+        x = col,
+        y = "Count"
+      ) +
+      theme_minimal()
+    
+    print(p)
+  }
+}
 
 
+#Plot distribution of discrete / categorical variables
+plot_discrete_distributions <- function(data,
+                                        columns = NULL) {
+  
+  # If no columns supplied, use character, factor and logical columns
+  if (is.null(columns)) {
+    columns <- names(data)[
+      sapply(
+        data,
+        function(x) is.character(x) ||
+          is.factor(x) ||
+          is.logical(x)
+      )
+    ]
+  }
+  
+  for (col in columns) {
+    
+    p <- ggplot(data, aes(x = .data[[col]])) +
+      geom_bar(na.rm = TRUE) +
+      labs(
+        title = paste("Distribution of", col),
+        x = col,
+        y = "Count"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(
+          angle = 45,
+          hjust = 1
+        )
+      )
+    
+    print(p)
+  }
+}
 
 
 

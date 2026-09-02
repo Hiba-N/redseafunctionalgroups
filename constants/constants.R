@@ -169,7 +169,6 @@ selected_traits <- c(
   "DemersPelag_species",
   "AirBreathing_species",
   "Vulnerability_species",
-  "PriceCateg_species",
   "Dangerous_species",
   "Electrogenic_species",
   "PD50_species"
@@ -225,4 +224,60 @@ x <- c(
   "PriceCateg_species",
   "Dangerous_species",
   "Electrogenic_species"
+)
+
+continuous_traits <- c(
+  "a_estimate",
+  "b_estimate",
+  "ComDepthMax_estimate",
+  "ComDepthMin_estimate",
+  "DepthMax_estimate",
+  "DepthMin_estimate",
+  "DorsalSoftRaysMax_morphdat",
+  "DorsalSoftRaysMin_morphdat",
+  "E_matrix",
+  "Generation_time_matrix",
+  "K_estimate",
+  "Life_span_matrix",
+  "MaxLengthSL_estimate",
+  "MaxLengthTL_estimate",
+  "mean_temp_matrix",
+  "PD50_species",
+  "PredPreyRatioMax_estimate",
+  "PredPreyRatioMin_estimate",
+  "QB_matrix",
+  "sd_b_estimate",
+  "sd_log10a_estimate",
+  "seTroph_estimate",
+  "TempPrefMax_estimate",
+  "TempPrefMean_estimate",
+  "TempPrefMin_estimate",
+  "tm_matrix",
+  "to_matrix",
+  "Troph_estimate",
+  "Vulnerability_species"
+)
+
+discrete_traits <- c(
+  "AirBreathing_species",
+  "BodyShapeI_morphdat",
+  "Brack_species",
+  "Dangerous_species",
+  "DemersPelag_species",
+  "Electrogenic_species",
+  "FeedingPath_estimate",
+  "Fresh_species",
+  "LLinterrupted_morphdat",
+  "Notched_morphdat",
+  "OperculumPresent_morphdat",
+  "Resilience_matrix",
+  "Saltwater_species",
+  "Genus_species"
+)
+
+meta <- c(
+  "FBname_species",
+  "spec_code",
+  "Species",
+  "stock_code"
 )
