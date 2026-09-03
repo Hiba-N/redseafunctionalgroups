@@ -5,7 +5,6 @@
 library(dplyr)
 library(cluster)
 
-
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
@@ -627,6 +626,10 @@ validate_knn_gower <- function(
     } else {
       
       
+      # --------------------------------------------------------
+      # Accuracy
+      # --------------------------------------------------------
+      
       accuracy <- mean(
         actual == predicted
       )
@@ -833,6 +836,10 @@ summarise_knn_results <- function(
     
     summarise(
       
+      # ------------------------------------------------------
+      # Accuracy
+      # ------------------------------------------------------
+      
       mean_accuracy =
         mean(
           accuracy,
@@ -844,6 +851,10 @@ summarise_knn_results <- function(
           accuracy,
           na.rm = TRUE
         ),
+      
+      # ------------------------------------------------------
+      # Numeric metrics
+      # ------------------------------------------------------
       
       mean_rmse =
         mean(
@@ -879,6 +890,11 @@ get_best_parameters <- function(
   )
   
   
+  # ----------------------------------------------------------
+  # Numeric traits
+  # Lower RMSE = better
+  # ----------------------------------------------------------
+  
   numeric_best <- summary %>%
     
     filter(
@@ -895,6 +911,11 @@ get_best_parameters <- function(
       with_ties = FALSE
     )
   
+  
+  # ----------------------------------------------------------
+  # Categorical traits
+  # Higher accuracy = better
+  # ----------------------------------------------------------
   
   categorical_best <- summary %>%
     
@@ -919,7 +940,12 @@ get_best_parameters <- function(
   )
 }
 
-#imputation
+
+# ============================================================
+# FINAL IMPUTATION USING BEST PARAMETERS
+# ============================================================
+
+
 impute_using_best_parameters <- function(
     data,
     best_parameters,
@@ -941,31 +967,51 @@ impute_using_best_parameters <- function(
     
     # Only impute if the column exists
     if (!target %in% names(result)) {
+      
       warning(
         "Target column not found in data: ",
         target
       )
+      
       next
     }
     
     # Keep track of how many were missing before imputation
-    missing_before <- sum(is.na(result[[target]]))
+    missing_before <- sum(
+      is.na(result[[target]])
+    )
     
     if (missing_before == 0) {
-      message("  No missing values.")
+      
+      message(
+        "  No missing values."
+      )
+      
       next
     }
     
     # Impute using the best parameters for this trait
     result[[target]] <- impute_knn_column(
-      data = result,
-      target = target,
-      k = k,
-      weighted = weighted,
-      exclude_columns = exclude_columns
+      
+      data =
+        result,
+      
+      target =
+        target,
+      
+      k =
+        k,
+      
+      weighted =
+        weighted,
+      
+      exclude_columns =
+        exclude_columns
     )
     
-    missing_after <- sum(is.na(result[[target]]))
+    missing_after <- sum(
+      is.na(result[[target]])
+    )
     
     message(
       "  Missing: ", missing_before,

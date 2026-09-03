@@ -122,7 +122,7 @@ results <- run_knn_experiments(
 
 write.csv(
   results,
-  "results/2knn_gower_results.csv",
+  "results/9-3-2026/gower_results.csv",
   row.names = FALSE
 )
 
@@ -134,7 +134,7 @@ results_summary <- summarise_knn_results(
 
 write.csv(
   results_summary,
-  "results/2knn_gower_results_summary.csv",
+  "results/9-3-2026/gower_results_summary.csv",
   row.names = FALSE
 )
 
@@ -145,7 +145,7 @@ best_parameters <- get_best_parameters(
 
 write.csv(
   best_parameters,
-  "results/2knn_gower_best_parameters.csv",
+  "results/9-3-2026/knn_gower_best_parameters.csv",
   row.names = FALSE
 )
 

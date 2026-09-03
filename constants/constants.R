@@ -152,7 +152,6 @@ selected_traits <- c(
   "Life_span_matrix",
   "Generation_time_matrix",
   "tm_matrix",
-  "E_matrix",
   "Resilience_matrix",
   "QB_matrix",
   "BodyShapeI_morphdat",
@@ -165,7 +164,6 @@ selected_traits <- c(
   "FBname_species",
   "Fresh_species",
   "Brack_species",
-  "Saltwater_species",
   "DemersPelag_species",
   "AirBreathing_species",
   "Vulnerability_species",
@@ -235,7 +233,6 @@ continuous_traits <- c(
   "DepthMin_estimate",
   "DorsalSoftRaysMax_morphdat",
   "DorsalSoftRaysMin_morphdat",
-  "E_matrix",
   "Generation_time_matrix",
   "K_estimate",
   "Life_span_matrix",
@@ -271,7 +268,6 @@ discrete_traits <- c(
   "Notched_morphdat",
   "OperculumPresent_morphdat",
   "Resilience_matrix",
-  "Saltwater_species",
   "Genus_species"
 )
 
