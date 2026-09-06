@@ -157,3 +157,32 @@ traits_imputed <- impute_using_best_parameters(
 )
 
 missing_data <- calculate_missing_percentage(traits_imputed)
+
+#trying for f1
+
+#pre checks - checking amount of each unique value
+for (col in setdiff(names(trait_table), continuous_traits)) {
+  
+  cat("\n==============================\n")
+  cat(col, "\n")
+  cat("==============================\n")
+  
+  print(
+    table(
+      trait_table[[col]],
+      useNA = "ifany"
+    )
+  )
+}
+
+#resolving body shape values - take this somewhere else
+trait_table$BodyShapeI_morphdat[
+  trait_table$BodyShapeI_morphdat == "other (see remarks)"
+] <- "other"
+
+table(
+  trait_table$BodyShapeI_morphdat,
+  useNA = "ifany"
+)
+
+

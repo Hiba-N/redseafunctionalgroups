@@ -1,5 +1,8 @@
 library(rfishbase)
 library(ggplot2)
+library(PCAmixdata)
+library(dplyr)
+library(tidyr)
 
 #all tables
 fb_tables()
@@ -570,11 +573,321 @@ plot_discrete_distributions <- function(data,
   }
 }
 
+# ============================================================
+# PCAMIX + CORRELATION ANALYSIS
+# ============================================================
+
+run_pcamix_analysis <- function(data,
+                                continuous_traits,
+                                discrete_traits,
+                                ndim = 2,
+                                graph = TRUE) {
+  
 
 
+#pca functions
+  
+  # Keep rows with complete continuous data
+  pca_data <- data[
+    complete.cases(data[, continuous_traits, drop = FALSE]),
+    ,
+    drop = FALSE
+  ]
+  
+  continuous_table <- as.data.frame(
+    pca_data[, continuous_traits, drop = FALSE]
+  )
+  
+  # Explicitly convert continuous variables to numeric
+  continuous_table[] <- lapply(
+    continuous_table,
+    function(x) as.numeric(as.character(x))
+  )
+  
+  
+  discrete_table <- as.data.frame(
+    pca_data[, discrete_traits, drop = FALSE]
+  )
+  
+  # Convert categorical variables to factors
+  discrete_table[] <- lapply(
+    discrete_table,
+    as.factor
+  )
+  
+  
+  non_numeric <- names(continuous_table)[
+    !sapply(continuous_table, is.numeric)
+  ]
+  
+  if (length(non_numeric) > 0) {
+    stop(
+      paste(
+        "The following continuous variables are not numeric:",
+        paste(non_numeric, collapse = ", ")
+      )
+    )
+  }
+  
+  
+  # Check remaining NAs
+  continuous_na <- colSums(is.na(continuous_table))
+  discrete_na <- colSums(is.na(discrete_table))
+  
+  pcamix <- PCAmixdata::PCAmix(
+    X.quanti = continuous_table,
+    X.quali = discrete_table,
+    rename.level = TRUE,
+    graph = graph,
+    ndim = ndim
+  )
+  
+  
+  cor_matrix <- cor(
+    continuous_table,
+    method = "pearson",
+    use = "complete.obs"
+  )
+  
+  
+  cor_long <- as.data.frame(cor_matrix) %>%
+    mutate(Trait1 = rownames(.)) %>%
+    pivot_longer(
+      cols = -Trait1,
+      names_to = "Trait2",
+      values_to = "Correlation"
+    )
+  
+  
+  # Preserve ordering
+  cor_long$Trait1 <- factor(
+    cor_long$Trait1,
+    levels = rev(colnames(cor_matrix))
+  )
+  
+  cor_long$Trait2 <- factor(
+    cor_long$Trait2,
+    levels = colnames(cor_matrix)
+  )
+  
+  
+  correlation_plot <- ggplot(
+    cor_long,
+    aes(
+      x = Trait2,
+      y = Trait1,
+      fill = Correlation
+    )
+  ) +
+    geom_tile(color = "white") +
+    geom_text(
+      aes(label = sprintf("%.2f", Correlation)),
+      size = 3
+    ) +
+    scale_fill_gradient2(
+      low = "green",
+      mid = "beige",
+      high = "pink",
+      midpoint = 0,
+      limits = c(-1, 1),
+      name = "Corr"
+    ) +
+    coord_fixed() +
+    theme_minimal() +
+    theme(
+      axis.title = element_blank(),
+      axis.text.x = element_text(
+        angle = 45,
+        hjust = 1
+      ),
+      panel.grid = element_blank()
+    )
+  
+  
+  return(
+    list(
+      pcamix = pcamix,
+      pca_data = pca_data,
+      continuous_table = continuous_table,
+      discrete_table = discrete_table,
+      correlation_matrix = cor_matrix,
+      correlation_table = cor_long,
+      correlation_plot = correlation_plot,
+      continuous_NA = continuous_na,
+      discrete_NA = discrete_na
+    )
+  )
+}
 
 
+# getting baseline models
+get_mode <- function(x) {
+  
+  x <- x[!is.na(x)]
+  
+  if (length(x) == 0) {
+    return(NA)
+  }
+  
+  tab <- table(x)
+  
+  names(tab)[which.max(tab)]
+}
 
+run_baseline_models <- function(data,
+                                continuous_traits,
+                                discrete_traits,
+                                mask_proportion = 0.10,
+                                seed = 123) {
+  
+  set.seed(seed)
+  
+  original_data <- data
+  masked_data <- data
 
+  
+  continuous_results <- lapply(
+    continuous_traits,
+    function(col) {
+      
+      x <- data[[col]]
+      available <- which(!is.na(x))
+      
+      if (length(available) == 0) {
+        return(data.frame(
+          variable = col,
+          type = "continuous",
+          n_test = 0,
+          baseline_prediction = NA,
+          metric = "RMSE",
+          value = NA
+        ))
+      }
+      
+      n_test <- max(
+        1,
+        floor(length(available) * mask_proportion)
+      )
+      
+      test_indices <- sample(
+        available,
+        size = min(n_test, length(available))
+      )
+      
+      # Mask test values
+      masked_data[[col]][test_indices] <- NA
+      
+      # Mean from training/observed values
+      baseline_prediction <- mean(
+        masked_data[[col]],
+        na.rm = TRUE
+      )
+      
+      # True values
+      true_values <- original_data[[col]][test_indices]
+      
+      # RMSE
+      rmse <- sqrt(
+        mean(
+          (true_values - baseline_prediction)^2
+        )
+      )
+      
+      data.frame(
+        variable = col,
+        type = "continuous",
+        n_test = length(test_indices),
+        baseline_prediction = baseline_prediction,
+        metric = "RMSE",
+        value = rmse
+      )
+    }
+  )
+  
+  
+  continuous_results <- do.call(
+    rbind,
+    continuous_results
+  )
+  
+  
+  # ==========================================================
+  # DISCRETE: MODE + ACCURACY
+  # ==========================================================
+  
+  discrete_results <- lapply(
+    discrete_traits,
+    function(col) {
+      
+      x <- data[[col]]
+      available <- which(!is.na(x))
+      
+      if (length(available) == 0) {
+        return(data.frame(
+          variable = col,
+          type = "discrete",
+          n_test = 0,
+          baseline_prediction = NA,
+          metric = "Accuracy",
+          value = NA
+        ))
+      }
+      
+      n_test <- max(
+        1,
+        floor(length(available) * mask_proportion)
+      )
+      
+      test_indices <- sample(
+        available,
+        size = min(n_test, length(available))
+      )
+      
+      # Mask test values
+      masked_data[[col]][test_indices] <- NA
+      
+      # Mode from training/observed values
+      baseline_prediction <- get_mode(
+        masked_data[[col]]
+      )
+      
+      # True values
+      true_values <- original_data[[col]][test_indices]
+      
+      # Accuracy
+      accuracy <- mean(
+        baseline_prediction == true_values,
+        na.rm = TRUE
+      )
+      
+      data.frame(
+        variable = col,
+        type = "discrete",
+        n_test = length(test_indices),
+        baseline_prediction = baseline_prediction,
+        metric = "Accuracy",
+        value = accuracy
+      )
+    }
+  )
+  
+  
+  discrete_results <- do.call(
+    rbind,
+    discrete_results
+  )
 
-
+  
+  results <- rbind(
+    continuous_results,
+    discrete_results
+  )
+  
+  
+  # Add settings used for this experiment
+  results$mask_proportion <- mask_proportion
+  results$seed <- seed
+  
+  
+  return(results)
+}
