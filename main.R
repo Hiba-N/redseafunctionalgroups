@@ -9,6 +9,7 @@ source("constants/model_constants.R")
 library(readr)
 library(writexl)
 source("utils/model_utils.R")
+library(PCAmixdata)
 
 
 
@@ -81,6 +82,7 @@ plot_discrete_distributions(
   columns = discrete_traits
 )
 
+#fixing a few random values
 trait_table <- trait_table %>%
   mutate(
     Resilience_matrix = ifelse(
@@ -95,6 +97,18 @@ trait_table[discrete_traits] <- lapply(
   as.factor
 )
 
+trait_table$BodyShapeI_morphdat[
+  trait_table$BodyShapeI_morphdat == "other (see remarks)"
+] <- "other"
+
+trait_table$Electrogenic_species[
+  trait_table$Electrogenic_species == "Electrosensing only"
+] <- "electrosensing only"
+
+table(
+  trait_table$BodyShapeI_morphdat,
+  useNA = "ifany"
+)
 
 #knn
 
@@ -158,31 +172,62 @@ traits_imputed <- impute_using_best_parameters(
 
 missing_data <- calculate_missing_percentage(traits_imputed)
 
-#trying for f1
+#trying for f1 weighted instead of micro  #do this later
 
-#pre checks - checking amount of each unique value
-for (col in setdiff(names(trait_table), continuous_traits)) {
-  
-  cat("\n==============================\n")
-  cat(col, "\n")
-  cat("==============================\n")
-  
-  print(
-    table(
-      trait_table[[col]],
-      useNA = "ifany"
-    )
-  )
-}
 
-#resolving body shape values - take this somewhere else
-trait_table$BodyShapeI_morphdat[
-  trait_table$BodyShapeI_morphdat == "other (see remarks)"
-] <- "other"
-
-table(
-  trait_table$BodyShapeI_morphdat,
-  useNA = "ifany"
+#pca, before and after
+pca_original_results <- run_pcamix_analysis(
+  data = trait_table,
+  continuous_traits = continuous_traits,
+  discrete_traits = discrete_traits,
+  ndim = 2,
+  graph = TRUE
 )
+
+#round(pca_results$correlation_matrix, 2)
+#View(pca_results$correlation_table)
+pca_original_results$correlation_plot
+
+#pca, before and after
+pca_inferred_results <- run_pcamix_analysis(
+  data = traits_imputed,
+  continuous_traits = continuous_traits,
+  discrete_traits = discrete_traits,
+  ndim = 2,
+  graph = TRUE
+)
+
+pca_inferred_results$correlation_plot
+
+#comparing inferred data with base models (averages and modes)
+
+baseline_results <- run_baseline_models(
+  data = trait_table,
+  continuous_traits = continuous_traits,
+  discrete_traits = discrete_traits,
+  mask_proportion = 0.10,
+  seed = 123
+)
+
+write.csv(
+  baseline_results ,
+  "results/9-6-2026/baseline_results.csv",
+  row.names = FALSE
+)
+
+#manual comparison done, consider doing a technical one | knn works better overall
+
+#continous to discrete
+
+discrete_class_counts <- get_class_counts(
+  data = traits_imputed,
+  discrete_traits
+)
+
+View(discrete_class_counts)
+
+#apart from binary flags we usually have classes 4,5,7,8 so we should go for around 6 classes
+
+
 
 

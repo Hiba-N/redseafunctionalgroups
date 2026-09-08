@@ -891,3 +891,20 @@ run_baseline_models <- function(data,
   
   return(results)
 }
+
+
+#get unique class count per group
+
+get_class_counts <- function(data, column_names) {
+  
+  unique_class_counts <- data.frame(
+    variable = column_names,
+    n_classes = sapply(
+      data[column_names],
+      function(x) length(unique(na.omit(x)))
+    ),
+    row.names = NULL
+  )
+  
+  return(unique_class_counts)
+}
