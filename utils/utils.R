@@ -3,6 +3,7 @@ library(ggplot2)
 library(PCAmixdata)
 library(dplyr)
 library(tidyr)
+library(classInt)
 
 #all tables
 fb_tables()
@@ -433,7 +434,7 @@ remove_high_na_columns <- function(df, threshold = 25) {
   return(df)
 }
 
-remove_meta_columns <- function(df, columns_to_remove) {
+remove_columns <- function(df, columns_to_remove) {
   
   df <- df |>
     dplyr::select(
@@ -536,6 +537,67 @@ plot_continuous_distributions <- function(data,
 }
 
 
+plot_continuous_distributions <- function(data,
+                                          columns = NULL,
+                                          bins = 30,
+                                          n_breaks = 4) {
+  
+  # If no columns supplied, use all numeric columns
+  if (is.null(columns)) {
+    columns <- names(data)[sapply(data, is.numeric)]
+  }
+  
+  for (col in columns) {
+    
+    # Remove NA values
+    x <- data[[col]]
+    x <- x[!is.na(x)]
+    
+    # Need enough unique values for natural breaks
+    if (length(unique(x)) < n_breaks + 1) {
+      message(
+        "Skipping ", col,
+        ": not enough unique values for ",
+        n_breaks, " breaks."
+      )
+      next
+    }
+    
+    # Calculate Jenks natural breaks
+    breaks <- classInt::classIntervals(
+      x,
+      n = n_breaks,
+      style = "jenks"
+    )$brks
+    
+    # Plot
+    p <- ggplot(data, aes(x = .data[[col]])) +
+      geom_histogram(
+        bins = bins,
+        na.rm = TRUE
+      ) +
+      geom_vline(
+        xintercept = breaks,
+        linetype = "dashed",
+        linewidth = 0.7
+      ) +
+      labs(
+        title = paste("Distribution of", col),
+        subtitle = paste(
+          "Jenks natural breaks:",
+          paste(round(breaks, 2), collapse = " | ")
+        ),
+        x = col,
+        y = "Count"
+      ) +
+      theme_minimal()
+    
+    print(p)
+  }
+}
+
+
+
 #Plot distribution of discrete / categorical variables
 plot_discrete_distributions <- function(data,
                                         columns = NULL) {
@@ -583,16 +645,25 @@ run_pcamix_analysis <- function(data,
                                 ndim = 2,
                                 graph = TRUE) {
   
-
-
 #pca functions
+  
+  
+  all_pca_traits <- c(continuous_traits, discrete_traits)
+  
+  # Keep rows with complete continuous data
+  #  pca_data <- data[
+  #    complete.cases(data[, continuous_traits, drop = FALSE]),
+  #    ,
+  #    drop = FALSE
+  #  ]
   
   # Keep rows with complete continuous data
   pca_data <- data[
-    complete.cases(data[, continuous_traits, drop = FALSE]),
+    complete.cases(data[, all_pca_traits, drop = FALSE]),
     ,
     drop = FALSE
   ]
+
   
   continuous_table <- as.data.frame(
     pca_data[, continuous_traits, drop = FALSE]
@@ -907,4 +978,72 @@ get_class_counts <- function(data, column_names) {
   )
   
   return(unique_class_counts)
+}
+
+
+
+#DISCRETIZE ONE COLUMN
+
+discretize_column <- function(data,
+                              column,
+                              breaks,
+                              labels) {
+  
+  if (!column %in% names(data)) {
+    warning("Column not found: ", column)
+    return(data)
+  }
+  
+  if (length(breaks) != length(labels) + 1) {
+    stop(
+      "Number of breaks must be exactly one greater ",
+      "than number of labels for column: ", column
+    )
+  }
+  
+  # Preserve NA values
+  data[[column]] <- cut(
+    data[[column]],
+    breaks = breaks,
+    labels = labels,
+    include.lowest = TRUE,
+    right = TRUE,
+    ordered_result = FALSE
+  )
+  
+  # Explicitly ensure factor
+  data[[column]] <- factor(
+    data[[column]],
+    levels = labels
+  )
+  
+  return(data)
+}
+
+
+# DISCRETIZE MULTIPLE COLUMNS USING DISCRETIZATION_RULES
+
+
+discretize_traits <- function(data,
+                              rules = DISCRETIZATION_RULES) {
+  
+  for (column in names(rules)) {
+    
+    if (!column %in% names(data)) {
+      warning(
+        "Discretization column not found in data: ",
+        column
+      )
+      next
+    }
+    
+    data <- discretize_column(
+      data = data,
+      column = column,
+      breaks = rules[[column]]$breaks,
+      labels = rules[[column]]$labels
+    )
+  }
+  
+  return(data)
 }

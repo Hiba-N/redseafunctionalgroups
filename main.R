@@ -13,6 +13,7 @@ library(PCAmixdata)
 
 
 
+
 #load tables
 load_tables(tables)
 
@@ -52,8 +53,8 @@ red_sea_final <- remove_high_na_columns(
   threshold = THRESHOLD
 )
 
-#deleting uneccessary columns (such as metadata) except for reference columns
-red_sea_final <- remove_meta_columns(
+#deleting unnecessary columns (such as metadata) except for reference columns
+red_sea_final <- remove_columns(
   red_sea_final,
   META_COLUMNS_TO_REMOVE
 )
@@ -110,7 +111,11 @@ table(
   useNA = "ifany"
 )
 
-#knn
+#option 1: simply delete species with missing data
+
+#???
+
+#option 2: knn
 
 results <- run_knn_experiments(
   
@@ -174,19 +179,14 @@ missing_data <- calculate_missing_percentage(traits_imputed)
 
 #trying for f1 weighted instead of micro  #do this later
 
-
 #pca, before and after
 pca_original_results <- run_pcamix_analysis(
   data = trait_table,
   continuous_traits = continuous_traits,
   discrete_traits = discrete_traits,
-  ndim = 2,
-  graph = TRUE
+  ndim = 5,
+  graph = FALSE
 )
-
-#round(pca_results$correlation_matrix, 2)
-#View(pca_results$correlation_table)
-pca_original_results$correlation_plot
 
 #pca, before and after
 pca_inferred_results <- run_pcamix_analysis(
@@ -217,7 +217,7 @@ write.csv(
 
 #manual comparison done, consider doing a technical one | knn works better overall
 
-#continous to discrete
+#continuous to discrete
 
 discrete_class_counts <- get_class_counts(
   data = traits_imputed,
@@ -228,6 +228,26 @@ View(discrete_class_counts)
 
 #apart from binary flags we usually have classes 4,5,7,8 so we should go for around 6 classes
 
+#plotting histograms
+plot_continuous_distributions(
+  data = traits_imputed,
+  columns = continuous_traits
+)
 
+#discretizing according to literature
+traits_half_discrete <- discretize_traits(traits_imputed)
 
+#deleting unwanted columns
+traits_half_discrete <- remove_columns(
+  traits_half_discrete,
+  UNUSED_TRAIT_COLUMNS
+)
+
+#plotting histograms
+plot_continuous_distributions(
+  data = traits_half_discrete,
+  columns = REMAINDER_CONTINUOUS_TRAITS,
+  bins = 40,
+  n_breaks=4
+)
 

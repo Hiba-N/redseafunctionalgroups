@@ -169,7 +169,8 @@ selected_traits <- c(
   "Vulnerability_species",
   "Dangerous_species",
   "Electrogenic_species",
-  "PD50_species"
+  "PD50_species",
+  "EnvTemp_stocks"
 )
 
 
@@ -268,7 +269,8 @@ discrete_traits <- c(
   "Notched_morphdat",
   "OperculumPresent_morphdat",
   "Resilience_matrix",
-  "Genus_species"
+  #"Genus_species",
+  "EnvTemp_stocks"
 )
 
 meta <- c(
@@ -276,4 +278,131 @@ meta <- c(
   "spec_code",
   "Species",
   "stock_code"
+)
+
+
+#DISCRETIZATION DICTIONARIES
+
+TROPH_BREAKS <- c(
+  -Inf,
+  3,
+  3.5,
+  4,
+  Inf
+)
+
+TROPH_LABELS <- c(
+  "Low",
+  "Medium",
+  "High",
+  "Veryhigh"
+)
+
+
+COM_DEPTH_MAX_BREAKS <- c(
+  -Inf,
+  20.1,
+  54.6,
+  148.4,
+  Inf
+)
+
+COM_DEPTH_MAX_LABELS <- c(
+  "Reef",
+  "Shallow",
+  "Ocean",
+  "Deep"
+)
+
+
+DEPTH_MAX_BREAKS <- c(
+  -Inf,
+  20.1,
+  54.6,
+  148.4,
+  403.4,
+  Inf
+)
+
+DEPTH_MAX_LABELS <- c(
+  "Reef",
+  "Shallow",
+  "Ocean",
+  "Deep",
+  "Bathy"
+)
+
+
+MAX_LENGTH_TL_BREAKS <- c(
+  -Inf,
+  20.1,
+  54.6,
+  148.4,
+  Inf
+)
+
+MAX_LENGTH_TL_LABELS <- c(
+  "Small",
+  "Medium",
+  "Large",
+  "Very large"
+)
+
+
+#DISCRETIZATION DICTIONARY
+
+DISCRETIZATION_RULES <- list(
+  
+  Troph_estimate = list(
+    breaks = TROPH_BREAKS,
+    labels = TROPH_LABELS
+  ),
+  
+  ComDepthMax_estimate = list(
+    breaks = COM_DEPTH_MAX_BREAKS,
+    labels = COM_DEPTH_MAX_LABELS
+  ),
+  
+  DepthMax_estimate = list(
+    breaks = DEPTH_MAX_BREAKS,
+    labels = DEPTH_MAX_LABELS
+  ),
+  
+  MaxLengthTL_estimate = list(
+    breaks = MAX_LENGTH_TL_BREAKS,
+    labels = MAX_LENGTH_TL_LABELS
+  )
+  
+)
+
+UNUSED_TRAIT_COLUMNS <- c(
+  'seTroph_estimate',
+  'a_estimate',
+  'sd_log10a_estimate',
+  'b_estimate',
+  'sd_b_estimate',
+  'K_estimate',
+  'ComDepthMin_estimate',
+  'DepthMin_estimate',
+  'TempPrefMean_estimate',
+  'MaxLengthSL_estimate',
+  'mean_temp_matrix',
+  'E_matrix'
+)
+
+REMAINDER_CONTINUOUS_TRAITS <- c(
+  #'PredPreyRatioMin_estimate', not using for the time being because it may not be comparable globally if discretized
+  #'PredPreyRatioMax_estimate', not using for the time being because it may not be comparable globally if discretized
+  'TempPrefMax_estimate',
+  'TempPrefMin_estimate',
+  'to_matrix',
+  'Life_span_matrix',
+  'Generation_time_matrix',
+  'tm_matrix',
+  'Resilience_matrix',
+  'QB_matrix',
+  'DorsalSoftRaysMin_morphdat',
+  'DorsalSoftRaysMax_morphdat',
+  'Vulnerability_Species',
+  'PD50_Species'
 )
