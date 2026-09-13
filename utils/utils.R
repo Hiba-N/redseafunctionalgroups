@@ -1027,6 +1027,10 @@ discretize_column <- function(data,
 discretize_traits <- function(data,
                               rules = DISCRETIZATION_RULES) {
   
+
+# PART 1: Apply discretization rules
+
+  
   for (column in names(rules)) {
     
     if (!column %in% names(data)) {
@@ -1044,6 +1048,33 @@ discretize_traits <- function(data,
       labels = rules[[column]]$labels
     )
   }
+  
+  
+
+#PART 2: Convert binary 0/1 columns to TRUE/FALSE factors
+
+  
+  for (column in names(data)) {
+    
+    x <- data[[column]]
+    
+    # Get unique non-NA values
+    unique_values <- unique(x[!is.na(x)])
+    
+    # Check whether column contains exactly 0 and 1
+    is_binary_01 <- length(unique_values) == 2 &&
+      all(unique_values %in% c(0, 1))
+    
+    if (is_binary_01) {
+      
+      data[[column]] <- factor(
+        x,
+        levels = c(0, 1),
+        labels = c("FALSE", "TRUE")
+      )
+    }
+  }
+  
   
   return(data)
 }

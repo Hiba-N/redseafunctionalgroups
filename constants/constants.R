@@ -118,7 +118,9 @@ META_COLUMNS_TO_REMOVE <- c(
   "DateEntered_stocks",
   "Modified_stocks",
   "DateModified_stocks",
-  "Reproductive_guild_matrix"
+  "Reproductive_guild_matrix",
+  "OperculumPresent_morphdat",
+  "Notched_morphdat"
 )
 
 # Values to treat as missing
@@ -348,6 +350,33 @@ MAX_LENGTH_TL_LABELS <- c(
   "Very large"
 )
 
+AGE_MATURITY_BREAKS <- c( #new #optional: https://www.freshwaterecology.info/fwe_info.php?p=b2c9ZmlzaCNwYXJhbT01Mg==&lang=2&lang=1
+  -Inf,
+  2.16,
+  5.2,
+  8,
+  Inf
+)
+
+AGE_MATURITY_LABELS <- c(
+  "Veryearly",
+  "Early",
+  "Late",
+  "Verylate"
+)
+
+LIFE_SPAN_BREAKS <- c( #https://www.freshwaterecology.info/fwe_info.php?p=b2c9ZmlzaCNwYXJhbT01MQ==
+  -Inf,
+  8,
+  15,
+  Inf
+)
+
+LIFE_SPAN_LABELS <- c(
+  "ls1",
+  "ls2",
+  "ls3"
+)
 
 #DISCRETIZATION DICTIONARY
 
@@ -371,6 +400,16 @@ DISCRETIZATION_RULES <- list(
   MaxLengthTL_estimate = list(
     breaks = MAX_LENGTH_TL_BREAKS,
     labels = MAX_LENGTH_TL_LABELS
+  ),
+  
+  tm_matrix = list(
+    breaks = AGE_MATURITY_BREAKS,
+    labels = AGE_MATURITY_LABELS
+  ),
+  
+  Life_span_matrix = list(
+    breaks = LIFE_SPAN_BREAKS,
+    labels = LIFE_SPAN_LABELS
   )
   
 )
@@ -387,7 +426,9 @@ UNUSED_TRAIT_COLUMNS <- c(
   'TempPrefMean_estimate',
   'MaxLengthSL_estimate',
   'mean_temp_matrix',
-  'E_matrix'
+  'E_matrix',
+  "Saltwater_species",
+  "LLinterrupted_morphdat"
 )
 
 REMAINDER_CONTINUOUS_TRAITS <- c(
@@ -397,12 +438,11 @@ REMAINDER_CONTINUOUS_TRAITS <- c(
   'TempPrefMin_estimate',
   'to_matrix',
   'Life_span_matrix',
-  'Generation_time_matrix',
-  'tm_matrix',
-  'Resilience_matrix',
-  'QB_matrix',
-  'DorsalSoftRaysMin_morphdat',
-  'DorsalSoftRaysMax_morphdat',
-  'Vulnerability_Species',
-  'PD50_Species'
+#  'Generation_time_matrix',
+  'tm_matrix'
+#  'QB_matrix',
+#  'DorsalSoftRaysMin_morphdat',
+#  'DorsalSoftRaysMax_morphdat',
+#  'Vulnerability_Species', #use later against probability mapping
+#  'PD50_Species' #use later against probability mapping
 )

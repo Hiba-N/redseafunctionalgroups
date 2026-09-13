@@ -188,16 +188,39 @@ pca_original_results <- run_pcamix_analysis(
   graph = FALSE
 )
 
+pca_original_results$correlation_plot 
+view(pca_original_results$discrete_table) 
+names(pca_original_results$pcamix) 
+head(pca_original_results$pcamix$ind$coord) 
+names(pca_original_results$pcamix) 
+str(pca_original_results$pcamix, max.level = 2) 
+summary(pca_original_results$pcamix) 
+head(pca_original_results$pcamix$ind$coord) 
+eig <- pca_original_results$pcamix$eig 
+eig_df <- data.frame( dimension = seq_len(nrow(eig)), eigenvalue = eig[, "Eigenvalue"], percentage = eig[, "Proportion"], cumulative = eig[, "Cumulative"] ) 
+ggplot(eig_df[1:20, ], aes(dimension, eigenvalue)) + geom_point() + geom_line() + labs( x = "Dimension", y = "Eigenvalue", title = "PCA-Mix Scree Plot" ) + theme_minimal()
+
 #pca, before and after
 pca_inferred_results <- run_pcamix_analysis(
   data = traits_imputed,
   continuous_traits = continuous_traits,
   discrete_traits = discrete_traits,
-  ndim = 2,
+  ndim = 5,
   graph = TRUE
 )
 
-pca_inferred_results$correlation_plot
+pca_inferred_results$correlation_plot 
+view(pca_inferred_results$discrete_table) 
+names(pca_inferred_results$pcamix) 
+head(pca_inferred_results$pcamix$ind$coord) 
+names(pca_inferred_results$pcamix) 
+str(pca_inferred_results$pcamix, max.level = 2) 
+summary(pca_inferred_results$pcamix) 
+head(pca_inferred_results$pcamix$ind$coord) 
+eig <- pca_inferred_results$pcamix$eig 
+eig_df <- data.frame( dimension = seq_len(nrow(eig)), eigenvalue = eig[, "Eigenvalue"], percentage = eig[, "Proportion"], cumulative = eig[, "Cumulative"] ) 
+ggplot(eig_df[1:20, ], aes(dimension, eigenvalue)) + geom_point() + geom_line() + labs( x = "Dimension", y = "Eigenvalue", title = "PCA-Mix Scree Plot" ) + theme_minimal()
+
 
 #comparing inferred data with base models (averages and modes)
 
@@ -234,20 +257,23 @@ plot_continuous_distributions(
   columns = continuous_traits
 )
 
+
 #discretizing according to literature
-traits_half_discrete <- discretize_traits(traits_imputed)
+traits_discrete <- discretize_traits(traits_imputed)
 
 #deleting unwanted columns
-traits_half_discrete <- remove_columns(
+traits_discrete <- remove_columns(
   traits_half_discrete,
   UNUSED_TRAIT_COLUMNS
 )
 
-#plotting histograms
-plot_continuous_distributions(
-  data = traits_half_discrete,
-  columns = REMAINDER_CONTINUOUS_TRAITS,
-  bins = 40,
-  n_breaks=4
+#removing extra missing columns
+traits_discrete <- remove_columns(
+  traits_half_discrete,
+  META_COLUMNS_TO_REMOVE
 )
+
+traits_discrete_only <- traits_discrete %>%
+  select(spec_code, where(is.factor))
+
 
