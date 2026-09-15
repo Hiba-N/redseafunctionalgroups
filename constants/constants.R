@@ -120,7 +120,9 @@ META_COLUMNS_TO_REMOVE <- c(
   "DateModified_stocks",
   "Reproductive_guild_matrix",
   "OperculumPresent_morphdat",
-  "Notched_morphdat"
+  "Notched_morphdat",
+  "spec_code",
+  "Genus_species"
 )
 
 # Values to treat as missing
@@ -414,35 +416,58 @@ DISCRETIZATION_RULES <- list(
   
 )
 
-UNUSED_TRAIT_COLUMNS <- c(
-  'seTroph_estimate',
-  'a_estimate',
-  'sd_log10a_estimate',
-  'b_estimate',
-  'sd_b_estimate',
-  'K_estimate',
-  'ComDepthMin_estimate',
-  'DepthMin_estimate',
-  'TempPrefMean_estimate',
-  'MaxLengthSL_estimate',
-  'mean_temp_matrix',
-  'E_matrix',
-  "Saltwater_species",
-  "LLinterrupted_morphdat"
+FINAL_REMOVED <- c(
+  "Species",
+  "stock_code",
+  "PredPreyRatioMin_estimate",
+  "PredPreyRatioMax_estimate",
+  "TempPrefMin_estimate",
+  "TempPrefMax_estimate",
+  "to_matrix",
+  "Generation_time_matrix",
+  "Resilience_matrix",
+  "QB_matrix",
+  "DorsalSoftRaysMin_morphdat",
+  "DorsalSoftRaysMax_morphdat",
+  "FBname_species",
+  "Vulnerability_species",
+  "Dangerous_species",
+  "Electrogenic_species",
+  "PD50_species",
+  'spec_code',
+  'Species',
+  'stock_code',
+  'Genus_species',
+  "Fresh_species",
+  "Brack_species"
 )
 
-REMAINDER_CONTINUOUS_TRAITS <- c(
+
+
   #'PredPreyRatioMin_estimate', not using for the time being because it may not be comparable globally if discretized
   #'PredPreyRatioMax_estimate', not using for the time being because it may not be comparable globally if discretized
-  'TempPrefMax_estimate',
-  'TempPrefMin_estimate',
-  'to_matrix',
-  'Life_span_matrix',
-#  'Generation_time_matrix',
-  'tm_matrix'
-#  'QB_matrix',
-#  'DorsalSoftRaysMin_morphdat',
-#  'DorsalSoftRaysMax_morphdat',
 #  'Vulnerability_Species', #use later against probability mapping
 #  'PD50_Species' #use later against probability mapping
+
+
+
+
+FUNCTIONAL_TRAITS <- c(
+  "spec_code",
+  "MaxLengthTL_estimate",
+  "Troph_estimate",
+  "ComDepthMax_estimate",
+  "DepthMax_estimate",   
+  "FeedingPath_estimate",
+  "Life_span_matrix",
+  "tm_matrix",
+  "Resilience_matrix",
+  "BodyShapeI_morphdat", 
+  "Fresh_species",
+  "Brack_species",
+  "DemersPelag_species",
+  "AirBreathing_species",
+  "Dangerous_species",
+  "Electrogenic_species",
+  "EnvTemp_stocks"
 )

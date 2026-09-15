@@ -10,6 +10,8 @@ library(readr)
 library(writexl)
 source("utils/model_utils.R")
 library(PCAmixdata)
+library(nomclust)
+library(mclust)
 
 
 
@@ -111,11 +113,7 @@ table(
   useNA = "ifany"
 )
 
-#option 1: simply delete species with missing data
-
-#???
-
-#option 2: knn
+#KNN
 
 results <- run_knn_experiments(
   
@@ -264,16 +262,285 @@ traits_discrete <- discretize_traits(traits_imputed)
 #deleting unwanted columns
 traits_discrete <- remove_columns(
   traits_half_discrete,
-  UNUSED_TRAIT_COLUMNS
+  FINAL_REMOVED
 )
 
-#removing extra missing columns
-traits_discrete <- remove_columns(
-  traits_half_discrete,
-  META_COLUMNS_TO_REMOVE
-)
 
 traits_discrete_only <- traits_discrete %>%
-  select(spec_code, where(is.factor))
+  select(where(is.factor))
 
 
+
+#distance
+
+# Goodall 3
+distance_goodall <- goodall3(traits_discrete_only)
+
+# Lin
+distance_lin <- lin(traits_discrete_only)
+
+# Eskin
+distance_eskin <- eskin(traits_discrete_only)
+
+
+head(as.matrix(distance_goodall))
+head(as.matrix(distance_lin))
+head(as.matrix(distance_eskin))
+
+distance_matrices <- list(
+  Goodall = distance_goodall,
+  Lin = distance_lin,
+  Eskin = distance_eskin
+)
+
+write.csv(
+  as.matrix(distance_goodall),
+  "results/distance_goodall.csv"
+)
+
+write.csv(
+  as.matrix(distance_lin),
+  "results/distance_lin.csv"
+)
+
+write.csv(
+  as.matrix(distance_eskin),
+  "results/distance_eskin.csv"
+)
+
+summary(distance_goodall)
+summary(distance_lin)
+summary(distance_eskin)
+
+range(distance_goodall)
+range(distance_lin)
+range(distance_eskin)
+
+hc_goodall <- hclust(distance_goodall, method = "average")
+hc_lin <- hclust(distance_lin, method = "average")
+hc_eskin <- hclust(distance_eskin, method = "average")
+
+plot(
+  hc_goodall,
+  main = "Hierarchical clustering - Goodall",
+  xlab = "",
+  sub = ""
+)
+
+plot(
+  hc_lin,
+  main = "Hierarchical clustering - Lin",
+  xlab = "",
+  sub = ""
+)
+
+plot(
+  hc_eskin,
+  main = "Hierarchical clustering - Eskin",
+  xlab = "",
+  sub = ""
+)
+
+cluster_range <- 2:25
+
+silhouette_results <- data.frame(
+  k = cluster_range,
+  Goodall = NA_real_,
+  Lin = NA_real_,
+  Eskin = NA_real_
+)
+
+for (i in seq_along(cluster_range)) {
+  
+  k <- cluster_range[i]
+  
+  # Goodall
+  groups_goodall <- cutree(hc_goodall, k = k)
+  sil_goodall <- silhouette(groups_goodall, distance_goodall)
+  silhouette_results$Goodall[i] <- mean(sil_goodall[, "sil_width"])
+  
+  # Lin
+  groups_lin <- cutree(hc_lin, k = k)
+  sil_lin <- silhouette(groups_lin, distance_lin)
+  silhouette_results$Lin[i] <- mean(sil_lin[, "sil_width"])
+  
+  # Eskin
+  groups_eskin <- cutree(hc_eskin, k = k)
+  sil_eskin <- silhouette(groups_eskin, distance_eskin)
+  silhouette_results$Eskin[i] <- mean(sil_eskin[, "sil_width"])
+}
+
+silhouette_results
+
+write.csv(
+  silhouette_results,
+  "results/silhouette_scores.csv",
+  row.names = FALSE
+)
+
+matplot(
+  silhouette_results$k,
+  silhouette_results[, -1],
+  type = "b",
+  pch = 19,
+  lty = 1,
+  xlab = "Number of clusters (k)",
+  ylab = "Mean silhouette width",
+  main = "Silhouette scores by distance metric"
+)
+
+legend(
+  "topright",
+  legend = c("Goodall", "Lin", "Eskin"),
+  lty = 1,
+  pch = 19
+)
+
+# ============================================================
+# ADJUSTED RAND INDEX
+# ============================================================
+
+library(mclust)
+
+ari_results <- data.frame(
+  k = cluster_range,
+  Goodall_Lin = NA_real_,
+  Goodall_Eskin = NA_real_,
+  Lin_Eskin = NA_real_
+)
+
+for (i in seq_along(cluster_range)) {
+  
+  k <- cluster_range[i]
+  
+  # Get clusters
+  groups_goodall <- cutree(hc_goodall, k = k)
+  groups_lin <- cutree(hc_lin, k = k)
+  groups_eskin <- cutree(hc_eskin, k = k)
+  
+  # ARI comparisons
+  ari_results$Goodall_Lin[i] <- adjustedRandIndex(
+    groups_goodall,
+    groups_lin
+  )
+  
+  ari_results$Goodall_Eskin[i] <- adjustedRandIndex(
+    groups_goodall,
+    groups_eskin
+  )
+  
+  ari_results$Lin_Eskin[i] <- adjustedRandIndex(
+    groups_lin,
+    groups_eskin
+  )
+}
+
+ari_results
+
+write.csv(
+  ari_results,
+  "results/ari_results.csv",
+  row.names = FALSE
+)
+
+matplot(
+  ari_results$k,
+  ari_results[, -1],
+  type = "b",
+  pch = 19,
+  lty = 1,
+  xlab = "Number of clusters (k)",
+  ylab = "Adjusted Rand Index",
+  main = "Agreement between distance metrics"
+)
+
+legend(
+  "topright",
+  legend = c(
+    "Goodall vs Lin",
+    "Goodall vs Eskin",
+    "Lin vs Eskin"
+  ),
+  lty = 1,
+  pch = 19
+)
+
+best_silhouette <- data.frame(
+  Distance = c("Goodall", "Lin", "Eskin"),
+  Best_k = c(
+    silhouette_results$k[
+      which.max(silhouette_results$Goodall)
+    ],
+    silhouette_results$k[
+      which.max(silhouette_results$Lin)
+    ],
+    silhouette_results$k[
+      which.max(silhouette_results$Eskin)
+    ]
+  ),
+  Max_silhouette = c(
+    max(silhouette_results$Goodall),
+    max(silhouette_results$Lin),
+    max(silhouette_results$Eskin)
+  )
+)
+
+best_silhouette
+
+
+groups_eskin_2 <- cutree(hc_eskin, k = 2)
+traits_with_groups <- traits_discrete_only
+traits_with_groups$Group <- factor(groups_eskin_2)
+group_trait_summary <- lapply(
+  traits_discrete_only,
+  function(x) {
+    prop.table(table(x, traits_with_groups$Group), margin = 2)
+  }
+)
+group_trait_summary
+
+
+
+
+# Add cluster assignments
+traits_with_groups <- traits_discrete_only
+traits_with_groups$Group <- factor(groups_eskin_2)
+
+# Calculate percentages for every trait
+percentage_results <- do.call(
+  rbind,
+  lapply(names(traits_discrete_only), function(trait) {
+    
+    tab <- prop.table(
+      table(
+        traits_discrete_only[[trait]],
+        traits_with_groups$Group
+      ),
+      margin = 2
+    ) * 100
+    
+    result <- as.data.frame(tab)
+    
+    colnames(result) <- c(
+      "Category",
+      "Group",
+      "Percentage"
+    )
+    
+    result$Trait <- trait
+    
+    result[, c(
+      "Trait",
+      "Category",
+      "Group",
+      "Percentage"
+    )]
+  })
+)
+
+# Save
+write.csv(
+  percentage_results,
+  "results/eskin_cluster_trait_percentages.csv",
+  row.names = FALSE
+)
