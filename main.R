@@ -177,7 +177,7 @@ missing_data <- calculate_missing_percentage(traits_imputed)
 
 #trying for f1 weighted instead of micro  #do this later
 
-#pca, before and after
+#cluster matrix, before and after
 pca_original_results <- run_pcamix_analysis(
   data = trait_table,
   continuous_traits = continuous_traits,
@@ -198,7 +198,7 @@ eig <- pca_original_results$pcamix$eig
 eig_df <- data.frame( dimension = seq_len(nrow(eig)), eigenvalue = eig[, "Eigenvalue"], percentage = eig[, "Proportion"], cumulative = eig[, "Cumulative"] ) 
 ggplot(eig_df[1:20, ], aes(dimension, eigenvalue)) + geom_point() + geom_line() + labs( x = "Dimension", y = "Eigenvalue", title = "PCA-Mix Scree Plot" ) + theme_minimal()
 
-#pca, before and after
+#cluster matrix, before and after
 pca_inferred_results <- run_pcamix_analysis(
   data = traits_imputed,
   continuous_traits = continuous_traits,
@@ -262,7 +262,7 @@ traits_discrete <- discretize_traits(traits_imputed)
 #deleting unwanted columns
 traits_discrete <- remove_columns(
   traits_half_discrete,
-  FINAL_REMOVED
+  FINAL_REMOVED #choose to keep genus_species or not
 )
 
 
@@ -544,3 +544,44 @@ write.csv(
   "results/eskin_cluster_trait_percentages.csv",
   row.names = FALSE
 )
+
+
+
+library(FactoMineR)
+library(factoextra)
+
+# Save species labels
+labels <- traits_discrete_only$Genus_species
+
+# Prep data: remove species column, convert all to factors
+traits_mca <- traits_discrete_only %>%
+  select(-Genus_species) %>%
+  mutate(across(everything(), as.factor))
+
+# Run MCA
+mca_result <- MCA(traits_mca, graph = FALSE)
+
+# Check variance explained by each dimension
+mca_result$eig
+
+# Plot individuals
+fviz_mca_ind(
+  mca_result,
+  label = "none",       # remove point labels for cleaner plot
+  habillage = "none",
+  pointsize = 2,
+  repel = TRUE
+) +
+  labs(title = "MCA – Species Trait Space")
+
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+
+fviz_mca_biplot(
+  mca_result,
+  repel     = TRUE,
+  label     = "var",     # only label the trait categories, not every point
+  pointsize = 1.5,
+  col.ind   = "steelblue",
+  col.var   = "tomato"
+) +
+  labs(title = "MCA Biplot – Individuals & Trait Categories")
