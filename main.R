@@ -1,33 +1,26 @@
+
 library(rfishbase)
-library(tidyverse)
-library(janitor)
-library(knitr)
-library(dplyr)
+source("utils/model_utils.R")
 source("utils/utils.R")
 source("constants/constants.R")
 source("constants/model_constants.R")
-library(readr)
-library(writexl)
-source("utils/model_utils.R")
-library(PCAmixdata)
-library(nomclust)
-library(mclust)
+library(missForest)
 
-
-
-
-#load tables
+# load tables
 load_tables(tables)
 
-#standardize tables
+# standardize tables
 standardize_tableids(tables)
 
-#get red sea fish
-red_sea_fish <- get_ecosystem_fish("Red Sea")
+# get ALL FishBase fish
+all_fish <- species()
+
+all_fish <- all_fish %>%
+  rename(spec_code = SpecCode)
 
 #intersect tables with fish from red sea
-redsea_tables <- intersect_redsea_tables(
-  red_sea_fish = red_sea_fish,
+all_fish_tables <- intersect_tables(
+  red_sea_fish = all_fish,
   tables = tables
 )
 
@@ -35,58 +28,62 @@ redsea_tables <- intersect_redsea_tables(
 
 #for tables with repeating spec + stock codes take averages
 average_tables(TABLES_TO_AVERAGE)
-check_duplicate_spec_codes(TABLES_TO_MERGE)
+check_duplicate_ids(TABLES_TO_MERGE)
 
 #continue with tables that have at least 700 rows left for now
 
 #merge all tables on the basis of spec code 
-red_sea_final <- merge_redsea_tables(
-  red_sea_fish,
+all_fish_final <- merge_tables(
+  all_fish,
   TABLES_TO_MERGE
 )
 
+sapply(all_fish_final[continuous_traits], class)
+sapply(all_fish_final[discrete_traits], class)
+
+# Continuous traits → numeric
+all_fish_final[continuous_traits] <- lapply(
+  all_fish_final[continuous_traits],
+  as.numeric
+)
+
+# Discrete traits → factors
+all_fish_final[discrete_traits] <- lapply(
+  all_fish_final[discrete_traits],
+  as.factor
+)
+
 #find pec missing in each column
-na_percentages <- calculate_na_percentage(red_sea_final)
+na_percentages <- calculate_na_percentage(all_fish_final)
 na_percentages
 
 #remove columns with greater than 25 missing data
-red_sea_final <- remove_high_na_columns(
-  red_sea_final,
+all_fish_final <- remove_high_na_columns(
+  all_fish_final,
   threshold = THRESHOLD
 )
 
 #deleting unnecessary columns (such as metadata) except for reference columns
-red_sea_final <- remove_columns(
-  red_sea_final,
+all_fish_final <- remove_columns(
+  all_fish_final,
   META_COLUMNS_TO_REMOVE
 )
 
 # Calculate missing percentage for all columns
-missing_data <- calculate_missing_percentage(red_sea_final)
+missing_data <- calculate_missing_percentage(all_fish_final)
 
-trait_table <- create_trait_table(
-  red_sea_final,
+all_fish_trait_table <- create_trait_table(
+  all_fish_final,
   selected_traits
 )
 
-missing_data <- calculate_missing_percentage(trait_table)
+missing_data <- calculate_missing_percentage(all_fish_trait_table)
 
-sapply(trait_table[continuous_traits], class)
+########### <<<<------------
 
-plot_continuous_distributions(
-  data = trait_table,
-  columns = continuous_traits
-)
-
-sapply(trait_table[discrete_traits], class)
-
-plot_discrete_distributions(
-  data = trait_table,
-  columns = discrete_traits
-)
 
 #fixing a few random values
-trait_table <- trait_table %>%
+all_fish_trait_table <- all_fish_trait_table %>%
   mutate(
     Resilience_matrix = ifelse(
       tolower(trimws(Resilience_matrix)) == "please enter values for k, tmax.",
@@ -95,493 +92,282 @@ trait_table <- trait_table %>%
     )
   )
 
-trait_table[discrete_traits] <- lapply(
-  trait_table[discrete_traits],
-  as.factor
-)
-
-trait_table$BodyShapeI_morphdat[
-  trait_table$BodyShapeI_morphdat == "other (see remarks)"
-] <- "other"
-
-trait_table$Electrogenic_species[
-  trait_table$Electrogenic_species == "Electrosensing only"
+all_fish_trait_table$Electrogenic_species[
+  all_fish_trait_table$Electrogenic_species == "Electrosensing only"
 ] <- "electrosensing only"
 
 table(
-  trait_table$BodyShapeI_morphdat,
+  all_fish_trait_table$BodyShapeI_morphdat,
   useNA = "ifany"
 )
 
-#KNN
+#keeping trait columns only
+names(all_fish_trait_table)
 
-results <- run_knn_experiments(
-  
-  data =
-    trait_table,
-  
-  exclude_columns =
-    EXCLUDED_COLUMNS,
-  
-  k_values =
-    K_VALUES,
-  
-  weighted_values =
-    WEIGHTED_VALUES,
-  
-  mask_proportions =
-    MASK_PROPORTIONS,
-  
-  seeds =
-    SEEDS
+
+missforest_data <- all_fish_trait_table %>%
+  dplyr::select(all_of(MISSFOREST_COLUMNS))
+
+#random forest
+training_data <- missforest_data[
+  !names(missforest_data) %in% EXCLUDED_COLUMNS
+]
+
+# Train missForest
+set.seed(789)
+training_data <- as.data.frame(training_data)
+
+class(training_data)
+
+model <- missForest(
+  training_data,
+  ntree = 500,
+  maxiter = 10,
+  variablewise = TRUE,
+  verbose = TRUE
 )
 
+# 1. Extract the imputed dataset
+imputed_data <- model$ximp
 
+# 2. Check the imputed data
+str(imputed_data)
+summary(imputed_data)
+
+# 3. Check whether any missing values remain
+sum(is.na(imputed_data))
+
+
+# 5. Save the imputed dataset
 write.csv(
-  results,
-  "results/9-3-2026/gower_results.csv",
+  imputed_data,
+  "results/9-27-2026 (all fish)/missForest_imputed_data.csv",
   row.names = FALSE
 )
 
-
-results_summary <- summarise_knn_results(
-  results
-)
-
-
+# 6. Save the missForest error results
 write.csv(
-  results_summary,
-  "results/9-3-2026/gower_results_summary.csv",
-  row.names = FALSE
+  as.data.frame(model$OOBerror),
+  "results/9-27-2026 (all fish)/missForests_results.csv",
+  row.names = TRUE
 )
 
-
-best_parameters <- get_best_parameters(
-  results
-)
-
-write.csv(
-  best_parameters,
-  "results/9-3-2026/knn_gower_best_parameters.csv",
-  row.names = FALSE
-)
-
-
-traits_imputed <- impute_using_best_parameters(
-  data = trait_table,
-  best_parameters = best_parameters,
-  exclude_columns = EXCLUDED_COLUMNS
-)
-
-missing_data <- calculate_missing_percentage(traits_imputed)
-
-#trying for f1 weighted instead of micro  #do this later
-
-#cluster matrix, before and after
-pca_original_results <- run_pcamix_analysis(
-  data = trait_table,
-  continuous_traits = continuous_traits,
-  discrete_traits = discrete_traits,
-  ndim = 5,
-  graph = FALSE
-)
-
-pca_original_results$correlation_plot 
-view(pca_original_results$discrete_table) 
-names(pca_original_results$pcamix) 
-head(pca_original_results$pcamix$ind$coord) 
-names(pca_original_results$pcamix) 
-str(pca_original_results$pcamix, max.level = 2) 
-summary(pca_original_results$pcamix) 
-head(pca_original_results$pcamix$ind$coord) 
-eig <- pca_original_results$pcamix$eig 
-eig_df <- data.frame( dimension = seq_len(nrow(eig)), eigenvalue = eig[, "Eigenvalue"], percentage = eig[, "Proportion"], cumulative = eig[, "Cumulative"] ) 
-ggplot(eig_df[1:20, ], aes(dimension, eigenvalue)) + geom_point() + geom_line() + labs( x = "Dimension", y = "Eigenvalue", title = "PCA-Mix Scree Plot" ) + theme_minimal()
-
-#cluster matrix, before and after
-pca_inferred_results <- run_pcamix_analysis(
-  data = traits_imputed,
-  continuous_traits = continuous_traits,
-  discrete_traits = discrete_traits,
-  ndim = 5,
-  graph = TRUE
-)
-
-pca_inferred_results$correlation_plot 
-view(pca_inferred_results$discrete_table) 
-names(pca_inferred_results$pcamix) 
-head(pca_inferred_results$pcamix$ind$coord) 
-names(pca_inferred_results$pcamix) 
-str(pca_inferred_results$pcamix, max.level = 2) 
-summary(pca_inferred_results$pcamix) 
-head(pca_inferred_results$pcamix$ind$coord) 
-eig <- pca_inferred_results$pcamix$eig 
-eig_df <- data.frame( dimension = seq_len(nrow(eig)), eigenvalue = eig[, "Eigenvalue"], percentage = eig[, "Proportion"], cumulative = eig[, "Cumulative"] ) 
-ggplot(eig_df[1:20, ], aes(dimension, eigenvalue)) + geom_point() + geom_line() + labs( x = "Dimension", y = "Eigenvalue", title = "PCA-Mix Scree Plot" ) + theme_minimal()
-
-
-#comparing inferred data with base models (averages and modes)
-
-baseline_results <- run_baseline_models(
-  data = trait_table,
-  continuous_traits = continuous_traits,
-  discrete_traits = discrete_traits,
-  mask_proportion = 0.10,
-  seed = 123
-)
-
-write.csv(
-  baseline_results ,
-  "results/9-6-2026/baseline_results.csv",
-  row.names = FALSE
-)
-
-#manual comparison done, consider doing a technical one | knn works better overall
-
-#continuous to discrete
-
-discrete_class_counts <- get_class_counts(
-  data = traits_imputed,
-  discrete_traits
-)
-
-View(discrete_class_counts)
-
-#apart from binary flags we usually have classes 4,5,7,8 so we should go for around 6 classes
-
-#plotting histograms
-plot_continuous_distributions(
-  data = traits_imputed,
-  columns = continuous_traits
-)
-
-
-#discretizing according to literature
-traits_discrete <- discretize_traits(traits_imputed)
-
-#deleting unwanted columns
-traits_discrete <- remove_columns(
-  traits_half_discrete,
-  FINAL_REMOVED #choose to keep genus_species or not
-)
-
-
-traits_discrete_only <- traits_discrete %>%
-  select(where(is.factor))
-
-
-
-#distance
-
-# Goodall 3
-distance_goodall <- goodall3(traits_discrete_only)
-
-# Lin
-distance_lin <- lin(traits_discrete_only)
-
-# Eskin
-distance_eskin <- eskin(traits_discrete_only)
-
-
-head(as.matrix(distance_goodall))
-head(as.matrix(distance_lin))
-head(as.matrix(distance_eskin))
-
-distance_matrices <- list(
-  Goodall = distance_goodall,
-  Lin = distance_lin,
-  Eskin = distance_eskin
-)
-
-write.csv(
-  as.matrix(distance_goodall),
-  "results/distance_goodall.csv"
-)
-
-write.csv(
-  as.matrix(distance_lin),
-  "results/distance_lin.csv"
-)
-
-write.csv(
-  as.matrix(distance_eskin),
-  "results/distance_eskin.csv"
-)
-
-summary(distance_goodall)
-summary(distance_lin)
-summary(distance_eskin)
-
-range(distance_goodall)
-range(distance_lin)
-range(distance_eskin)
-
-hc_goodall <- hclust(distance_goodall, method = "average")
-hc_lin <- hclust(distance_lin, method = "average")
-hc_eskin <- hclust(distance_eskin, method = "average")
-
-plot(
-  hc_goodall,
-  main = "Hierarchical clustering - Goodall",
-  xlab = "",
-  sub = ""
-)
-
-plot(
-  hc_lin,
-  main = "Hierarchical clustering - Lin",
-  xlab = "",
-  sub = ""
-)
-
-plot(
-  hc_eskin,
-  main = "Hierarchical clustering - Eskin",
-  xlab = "",
-  sub = ""
-)
-
-cluster_range <- 2:25
-
-silhouette_results <- data.frame(
-  k = cluster_range,
-  Goodall = NA_real_,
-  Lin = NA_real_,
-  Eskin = NA_real_
-)
-
-for (i in seq_along(cluster_range)) {
-  
-  k <- cluster_range[i]
-  
-  # Goodall
-  groups_goodall <- cutree(hc_goodall, k = k)
-  sil_goodall <- silhouette(groups_goodall, distance_goodall)
-  silhouette_results$Goodall[i] <- mean(sil_goodall[, "sil_width"])
-  
-  # Lin
-  groups_lin <- cutree(hc_lin, k = k)
-  sil_lin <- silhouette(groups_lin, distance_lin)
-  silhouette_results$Lin[i] <- mean(sil_lin[, "sil_width"])
-  
-  # Eskin
-  groups_eskin <- cutree(hc_eskin, k = k)
-  sil_eskin <- silhouette(groups_eskin, distance_eskin)
-  silhouette_results$Eskin[i] <- mean(sil_eskin[, "sil_width"])
-}
-
-silhouette_results
-
-write.csv(
-  silhouette_results,
-  "results/silhouette_scores.csv",
-  row.names = FALSE
-)
-
-matplot(
-  silhouette_results$k,
-  silhouette_results[, -1],
-  type = "b",
-  pch = 19,
-  lty = 1,
-  xlab = "Number of clusters (k)",
-  ylab = "Mean silhouette width",
-  main = "Silhouette scores by distance metric"
-)
-
-legend(
-  "topright",
-  legend = c("Goodall", "Lin", "Eskin"),
-  lty = 1,
-  pch = 19
-)
-
-# ============================================================
-# ADJUSTED RAND INDEX
-# ============================================================
-
-library(mclust)
-
-ari_results <- data.frame(
-  k = cluster_range,
-  Goodall_Lin = NA_real_,
-  Goodall_Eskin = NA_real_,
-  Lin_Eskin = NA_real_
-)
-
-for (i in seq_along(cluster_range)) {
-  
-  k <- cluster_range[i]
-  
-  # Get clusters
-  groups_goodall <- cutree(hc_goodall, k = k)
-  groups_lin <- cutree(hc_lin, k = k)
-  groups_eskin <- cutree(hc_eskin, k = k)
-  
-  # ARI comparisons
-  ari_results$Goodall_Lin[i] <- adjustedRandIndex(
-    groups_goodall,
-    groups_lin
-  )
-  
-  ari_results$Goodall_Eskin[i] <- adjustedRandIndex(
-    groups_goodall,
-    groups_eskin
-  )
-  
-  ari_results$Lin_Eskin[i] <- adjustedRandIndex(
-    groups_lin,
-    groups_eskin
-  )
-}
-
-ari_results
-
-write.csv(
-  ari_results,
-  "results/ari_results.csv",
-  row.names = FALSE
-)
-
-matplot(
-  ari_results$k,
-  ari_results[, -1],
-  type = "b",
-  pch = 19,
-  lty = 1,
-  xlab = "Number of clusters (k)",
-  ylab = "Adjusted Rand Index",
-  main = "Agreement between distance metrics"
-)
-
-legend(
-  "topright",
-  legend = c(
-    "Goodall vs Lin",
-    "Goodall vs Eskin",
-    "Lin vs Eskin"
-  ),
-  lty = 1,
-  pch = 19
-)
-
-best_silhouette <- data.frame(
-  Distance = c("Goodall", "Lin", "Eskin"),
-  Best_k = c(
-    silhouette_results$k[
-      which.max(silhouette_results$Goodall)
-    ],
-    silhouette_results$k[
-      which.max(silhouette_results$Lin)
-    ],
-    silhouette_results$k[
-      which.max(silhouette_results$Eskin)
-    ]
-  ),
-  Max_silhouette = c(
-    max(silhouette_results$Goodall),
-    max(silhouette_results$Lin),
-    max(silhouette_results$Eskin)
-  )
-)
-
-best_silhouette
-
-
-groups_eskin_2 <- cutree(hc_eskin, k = 2)
-traits_with_groups <- traits_discrete_only
-traits_with_groups$Group <- factor(groups_eskin_2)
-group_trait_summary <- lapply(
-  traits_discrete_only,
-  function(x) {
-    prop.table(table(x, traits_with_groups$Group), margin = 2)
-  }
-)
-group_trait_summary
-
-
-
-
-# Add cluster assignments
-traits_with_groups <- traits_discrete_only
-traits_with_groups$Group <- factor(groups_eskin_2)
-
-# Calculate percentages for every trait
-percentage_results <- do.call(
-  rbind,
-  lapply(names(traits_discrete_only), function(trait) {
-    
-    tab <- prop.table(
-      table(
-        traits_discrete_only[[trait]],
-        traits_with_groups$Group
-      ),
-      margin = 2
-    ) * 100
-    
-    result <- as.data.frame(tab)
-    
-    colnames(result) <- c(
-      "Category",
-      "Group",
-      "Percentage"
-    )
-    
-    result$Trait <- trait
-    
-    result[, c(
-      "Trait",
-      "Category",
-      "Group",
-      "Percentage"
-    )]
+error_table <- data.frame(
+  Variable = names(training_data),
+  ErrorType = names(model$OOBerror),
+  MSE_or_PFC = as.numeric(model$OOBerror),
+  Variance = sapply(training_data, function(x) {
+    if (is.numeric(x) || is.integer(x)) {
+      var(x, na.rm = TRUE)
+    } else {
+      NA
+    }
   })
 )
 
+error_table$MSE_or_PFC <- format(
+  error_table$MSE_or_PFC,
+  scientific = FALSE,
+  digits = 10
+)
+
+error_table$Variance <- format(
+  error_table$Variance,
+  scientific = FALSE,
+  digits = 10
+)
+
+print(error_table)
+
+
+#inference
+
+# Copy the original data
+missforest_imputed <- missforest_data
+
+# Replace the missForest columns with the imputed values
+missforest_imputed[names(training_data)] <- model$ximp
+
+# Check the result
+str(missforest_imputed)
+sum(is.na(missforest_imputed))
+
 # Save
 write.csv(
-  percentage_results,
-  "results/eskin_cluster_trait_percentages.csv",
+  missforest_imputed,
+  "results/9-27-2026 (all fish)/missForest_full_imputed_data.csv",
   row.names = FALSE
 )
 
+#mark red fish sea flag
+red_sea_fish <- get_ecosystem_fish("Red Sea")
+
+#mark red fish species in all fish data
+missforest_imputed <- missforest_imputed %>%
+  dplyr::left_join(
+    red_sea_fish %>%
+      dplyr::select(spec_code, stock_code) %>%
+      dplyr::distinct() %>%
+      dplyr::mutate(red_sea = TRUE),
+    by = c("spec_code", "stock_code")
+  ) %>%
+  dplyr::mutate(
+    red_sea = dplyr::coalesce(red_sea, FALSE)
+  )
 
 
-library(FactoMineR)
-library(factoextra)
+#pcaMix
 
-# Save species labels
-labels <- traits_discrete_only$Genus_species
+library(PCAmixdata)
+library(dplyr)
 
-# Prep data: remove species column, convert all to factors
-traits_mca <- traits_discrete_only %>%
-  select(-Genus_species) %>%
-  mutate(across(everything(), as.factor))
+# Columns to keep OUT of the analysis
+excluded <- c(
+  "stock_code",
+  "spec_code",
+  "Species_species",
+  "red_sea"
+)
 
-# Run MCA
-mca_result <- MCA(traits_mca, graph = FALSE)
+# Start with all trait columns
+pca_data <- missforest_imputed %>%
+  dplyr::select(-all_of(excluded))
 
-# Check variance explained by each dimension
-mca_result$eig
+# Convert character columns to factors
+pca_data <- pca_data %>%
+  dplyr::mutate(
+    dplyr::across(where(is.character), as.factor)
+  )
 
-# Plot individuals
-fviz_mca_ind(
-  mca_result,
-  label = "none",       # remove point labels for cleaner plot
-  habillage = "none",
-  pointsize = 2,
-  repel = TRUE
-) +
-  labs(title = "MCA – Species Trait Space")
+# Check the variable classes
+sapply(pca_data, class)
 
-                                                                                                                                                                                                                                                                                                                                                                                                                        
+# Run PCAmix
 
-fviz_mca_biplot(
-  mca_result,
-  repel     = TRUE,
-  label     = "var",     # only label the trait categories, not every point
-  pointsize = 1.5,
-  col.ind   = "steelblue",
-  col.var   = "tomato"
-) +
-  labs(title = "MCA Biplot – Individuals & Trait Categories")
+# Create separate ordinary data.frames
+X.quanti <- as.data.frame(
+  pca_data %>% dplyr::select(where(is.numeric))
+)
+
+X.quali <- as.data.frame(
+  pca_data %>% dplyr::select(where(is.factor))
+)
+
+# Check
+class(X.quanti)
+class(X.quali)
+
+sapply(X.quanti, class)
+sapply(X.quali, class)
+
+pca_mix <- PCAmix(
+  X.quanti = X.quanti,
+  X.quali = X.quali,
+  rename.level = TRUE,
+  graph = FALSE
+)
+
+
+pca_mix$eig
+
+head(pca_mix$ind$coord)
+
+coordinates <- as.data.frame(pca_mix$ind$coord)
+
+coordinates$Species_species <- missforest_imputed$Species_species
+coordinates$red_sea <- missforest_imputed$red_sea
+
+ggplot(coordinates, aes(x = `dim 1`, y = `dim 2`)) +
+  
+  # All fish in the background
+  geom_point(
+    data = coordinates %>% filter(red_sea == FALSE),
+    color = "black",
+    size = 1
+  ) +
+  
+  # Red Sea fish on top
+  geom_point(
+    data = coordinates %>% filter(red_sea == TRUE),
+    color = "red",
+    size = 2
+  ) +
+  
+  labs(
+    x = paste0(
+      "PCAmix Dimension 1 (",
+      round(pca_mix$eig["dim 1", "Proportion"], 1),
+      "%)"
+    ),
+    y = paste0(
+      "PCAmix Dimension 2 (",
+      round(pca_mix$eig["dim 2", "Proportion"], 1),
+      "%)"
+    )
+  ) +
+  
+  theme_classic()
+
+
+
+# ============================================================
+# TABLE FOR DIMENSION 1
+# ============================================================
+
+dim1_numeric <- data.frame(
+  Variable = rownames(pca_mix$quanti$contrib),
+  Correlation = pca_mix$quanti.cor[, "dim 1"],
+  Contribution = pca_mix$quanti$contrib[, "dim 1"]
+)
+
+dim1_numeric <- dim1_numeric[
+  order(-abs(dim1_numeric$Correlation)),
+]
+
+dim1_numeric
+
+# ============================================================
+# CATEGORICAL VARIABLES - DIMENSION 1
+# ============================================================
+
+dim1_categorical <- data.frame(
+  Variable = rownames(pca_mix$quali.eta2),
+  Association_eta2 = pca_mix$quali.eta2[, "dim 1"]
+)
+
+dim1_categorical <- dim1_categorical[
+  order(-dim1_categorical$Association_eta2),
+]
+
+dim1_categorical
+
+# ============================================================
+# TABLE FOR DIMENSION 2
+# ============================================================
+
+dim2_numeric <- data.frame(
+  Variable = rownames(pca_mix$quanti$contrib),
+  Correlation = pca_mix$quanti.cor[, "dim 2"],
+  Contribution = pca_mix$quanti$contrib[, "dim 2"]
+)
+
+dim2_numeric <- dim2_numeric[
+  order(-abs(dim2_numeric$Correlation)),
+]
+
+dim2_numeric
+
+# ============================================================
+# CATEGORICAL VARIABLES - DIMENSION 2
+# ============================================================
+
+dim2_categorical <- data.frame(
+  Variable = rownames(pca_mix$quali.eta2),
+  Association_eta2 = pca_mix$quali.eta2[, "dim 2"]
+)
+
+dim2_categorical <- dim2_categorical[
+  order(-dim2_categorical$Association_eta2),
+]
+
+dim2_categorical

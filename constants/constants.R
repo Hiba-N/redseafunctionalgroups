@@ -99,7 +99,7 @@ META_COLUMNS_TO_REMOVE <- c(
   "DateModified_morphdat",
   "autoctr_morphmet",
   "PicName_morphmet",
-  "Species_species",
+  #"Species_species",
   "Author_species",
   "PicPreferredName_species",
   "FamCode_species",
@@ -120,9 +120,9 @@ META_COLUMNS_TO_REMOVE <- c(
   "DateModified_stocks",
   "Reproductive_guild_matrix",
   "OperculumPresent_morphdat",
-  "Notched_morphdat",
-  "spec_code",
-  "Genus_species"
+  "Notched_morphdat"
+#  "spec_code",
+#  "Genus_species"
 )
 
 # Values to treat as missing
@@ -130,7 +130,7 @@ MISSING_VALUES <- c("", "unknown", "NA")
 
 selected_traits <- c(
   "spec_code",
-  "Species",
+  "Species_species",
   "stock_code",
   "MaxLengthTL_estimate",
   "Troph_estimate",
@@ -260,6 +260,20 @@ continuous_traits <- c(
   "Vulnerability_species"
 )
 
+continuous_traits_all_fish <- c(
+   "Generation_time_matrix",
+   "Life_span_matrix",
+   "MaxLengthSL_estimate",
+   "MaxLengthTL_estimate",
+   "mean_temp_matrix",
+   "PD50_species",
+   "PredPreyRatioMax_estimate",
+   "PredPreyRatioMin_estimate",
+   "tm_matrix",
+   "Troph_estimate",
+   "Vulnerability_species"
+)
+
 discrete_traits <- c(
   "AirBreathing_species",
   "BodyShapeI_morphdat",
@@ -274,6 +288,13 @@ discrete_traits <- c(
   "OperculumPresent_morphdat",
   "Resilience_matrix",
   #"Genus_species",
+  "EnvTemp_stocks",
+  "Species_species"
+)
+
+discrete_traits_all_fish <- c(
+  "FeedingPath_estimate",
+  "DemersPelag_species",
   "EnvTemp_stocks"
 )
 

@@ -1023,3 +1023,149 @@ impute_using_best_parameters <- function(
 }
 
 
+run_missforest_experiments <- function(
+    data,
+    exclude_columns,
+    mask_proportions,
+    seeds
+) {
+  
+  library(missForest)
+  library(dplyr)
+  
+  # Remove excluded columns
+  traits <- data %>%
+    select(-any_of(exclude_columns))
+  
+  results <- list()
+  counter <- 1
+  
+  for (mask in mask_proportions) {
+    
+    for (seed in seeds) {
+      
+      cat("\n----------------------------------\n")
+      cat("Experiment:", counter, "\n")
+      cat("Mask =", mask, "\n")
+      cat("Seed =", seed, "\n")
+      cat("----------------------------------\n")
+      
+      set.seed(seed)
+      
+      # ----------------------------------
+      # 1. Create artificial missingness
+      # ----------------------------------
+      
+      masked_data <- missForest::prodNA(
+        traits,
+        noNA = mask
+      )
+      
+      # ----------------------------------
+      # 2. Store original values
+      # ----------------------------------
+      
+      original_data <- traits
+      
+      # ----------------------------------
+      # 3. Run missForest
+      # ----------------------------------
+      
+      cat("Running missForest...\n")
+      
+      mf <- missForest(
+        masked_data,
+        verbose = TRUE
+      )
+      
+      imputed_data <- mf$ximp
+      
+      # ----------------------------------
+      # 4. Calculate errors
+      # ----------------------------------
+      
+      metric_results <- list()
+      
+      for (column in names(traits)) {
+        
+        # Values that were artificially masked
+        missing_idx <- is.na(masked_data[[column]])
+        
+        if (sum(missing_idx) == 0) {
+          next
+        }
+        
+        original <- original_data[[column]][missing_idx]
+        predicted <- imputed_data[[column]][missing_idx]
+        
+        # ----------------------------------
+        # Continuous variables
+        # ----------------------------------
+        
+        if (is.numeric(original) || is.integer(original)) {
+          
+          rmse <- sqrt(
+            mean(
+              (original - predicted)^2,
+              na.rm = TRUE
+            )
+          )
+          
+          mae <- mean(
+            abs(original - predicted),
+            na.rm = TRUE
+          )
+          
+          metric_results[[column]] <- data.frame(
+            Variable = column,
+            Type = "continuous",
+            RMSE = rmse,
+            MAE = mae,
+            Accuracy = NA_real_
+          )
+          
+        }
+        
+        # ----------------------------------
+        # Categorical variables
+        # ----------------------------------
+        
+        else {
+          
+          accuracy <- mean(
+            original == predicted,
+            na.rm = TRUE
+          )
+          
+          metric_results[[column]] <- data.frame(
+            Variable = column,
+            Type = "categorical",
+            RMSE = NA_real_,
+            MAE = NA_real_,
+            Accuracy = accuracy
+          )
+        }
+      }
+      
+      metrics <- bind_rows(metric_results)
+      
+      # Add experiment information
+      metrics$Mask <- mask
+      metrics$Seed <- seed
+      
+      # Overall missForest error estimates
+      results[[counter]] <- list(
+        Mask = mask,
+        Seed = seed,
+        ImputedData = imputed_data,
+        Metrics = metrics,
+        OOB_Error = mf$OOBerror
+      )
+      
+      counter <- counter + 1
+    }
+  }
+  
+  return(results)
+}
+

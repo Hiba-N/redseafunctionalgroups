@@ -123,7 +123,7 @@ get_ecosystem_fish <- function(ecosystem) {
   return(fish)
 }
 
-intersect_redsea_tables <- function(red_sea_fish, tables) {
+intersect_tables <- function(red_sea_fish, tables) {
   
   redsea_tables <- list()
   
@@ -319,56 +319,135 @@ average_tables <- function(tables_to_average) {
   invisible(NULL)
 }
 
-merge_redsea_tables <- function(red_sea_fish, tables_to_merge) {
+
+# merge_tables <- function(red_sea_fish, tables_to_merge) {
+#   
+#   # Start with Red Sea fish table
+#   merged_data <- red_sea_fish
+#   
+#   # Merge each table
+#   for (table_name in tables_to_merge) {
+#     
+#     df <- get(
+#       table_name,
+#       envir = .GlobalEnv
+#     )
+#     
+#     # Only merge if spec_code exists
+#     if (!"spec_code" %in% names(df)) {
+#       
+#       warning(
+#         paste(
+#           "Skipping", table_name,
+#           "- no spec_code column"
+#         )
+#       )
+#       
+#       next
+#     }
+#     
+#     # Get table name without "redsea_"
+#     suffix <- sub(
+#       "^redsea_",
+#       "",
+#       table_name
+#     )
+#     
+#     # Append table name to all columns except spec_code
+#     names(df) <- ifelse(
+#       names(df) == "spec_code",
+#       "spec_code",
+#       paste0(
+#         names(df),
+#         "_",
+#         suffix
+#       )
+#     )
+#     
+#     # Merge using spec_code
+#     merged_data <- merged_data |>
+#       dplyr::left_join(
+#         df,
+#         by = "spec_code"
+#       )
+#   }
+#   
+#   return(merged_data)
+# }
+
+merge_tables <- function(all_fish, tables_to_merge) {
   
-  # Start with Red Sea fish table
-  merged_data <- red_sea_fish
+  # Get all unique spec_code + stock_code combinations
+  stock_ids <- purrr::map_dfr(
+    tables_to_merge,
+    function(table_name) {
+      
+      df <- get(table_name, envir = .GlobalEnv)
+      
+      if (all(c("spec_code", "stock_code") %in% names(df))) {
+        df |>
+          dplyr::select(spec_code, stock_code) |>
+          dplyr::distinct()
+      } else {
+        NULL
+      }
+    }
+  ) |>
+    dplyr::distinct()
+  
+  
+  # Expand all_fish to stock level
+  merged_data <- all_fish |>
+    dplyr::left_join(
+      stock_ids,
+      by = "spec_code"
+    )
+  
   
   # Merge each table
   for (table_name in tables_to_merge) {
     
-    df <- get(
-      table_name,
-      envir = .GlobalEnv
-    )
+    df <- get(table_name, envir = .GlobalEnv)
     
-    # Only merge if spec_code exists
-    if (!"spec_code" %in% names(df)) {
+    # Get table suffix
+    suffix <- sub("^redsea_", "", table_name)
+    
+    # ---------------------------------------------------------
+    # TABLE HAS SPEC + STOCK
+    # ---------------------------------------------------------
+    
+    if (all(c("spec_code", "stock_code") %in% names(df))) {
       
-      warning(
-        paste(
-          "Skipping", table_name,
-          "- no spec_code column"
-        )
-      )
-      
-      next
-    }
-    
-    # Get table name without "redsea_"
-    suffix <- sub(
-      "^redsea_",
-      "",
-      table_name
-    )
-    
-    # Append table name to all columns except spec_code
-    names(df) <- ifelse(
-      names(df) == "spec_code",
-      "spec_code",
-      paste0(
+      names(df) <- ifelse(
+        names(df) %in% c("spec_code", "stock_code"),
         names(df),
-        "_",
-        suffix
+        paste0(names(df), "_", suffix)
       )
-    )
-    
-    # Merge using spec_code
-    merged_data <- merged_data |>
-      dplyr::left_join(
-        df,
-        by = "spec_code"
+      
+      merged_data <- merged_data |>
+        dplyr::left_join(
+          df,
+          by = c("spec_code", "stock_code")
+        )
+      
+      # ---------------------------------------------------------
+      # TABLE HAS ONLY SPEC
+      # ---------------------------------------------------------
+      
+    } else if ("spec_code" %in% names(df)) {
+      
+      names(df) <- ifelse(
+        names(df) == "spec_code",
+        "spec_code",
+        paste0(names(df), "_", suffix)
       )
+      
+      merged_data <- merged_data |>
+        dplyr::left_join(
+          df,
+          by = "spec_code"
+        )
+    }
   }
   
   return(merged_data)
@@ -399,6 +478,34 @@ check_duplicate_spec_codes <- function(tables) {
   
   invisible(NULL)
 }
+
+
+check_duplicate_ids <- function(tables) {
+  
+  for (table_name in tables) {
+    
+    df <- get(table_name, envir = .GlobalEnv)
+    
+    if (all(c("spec_code", "stock_code") %in% names(df))) {
+      
+      duplicates <- df |>
+        dplyr::count(spec_code, stock_code) |>
+        dplyr::filter(n > 1)
+      
+      if (nrow(duplicates) > 0) {
+        
+        cat(
+          "\n", table_name,
+          "has", nrow(duplicates),
+          "duplicate spec_code + stock_code combinations\n"
+        )
+      }
+    }
+  }
+  
+  invisible(NULL)
+}
+
 
 calculate_na_percentage <- function(df) {
   
