@@ -186,32 +186,47 @@ intersect_tables <- function(red_sea_fish, tables) {
     
     
     # -------------------------
-    # No matching ID
+    # No matching ID column
     # -------------------------
     
     else {
       
-      redsea_df <- df
-      
       warning(
         paste(
-          "No matching spec_code or stock_code found for:",
+          "No matching spec_code or stock_code column found for:",
           table_name
         )
       )
       
+      next
     }
     
     
-    # Name the resulting table
+    # -------------------------
+    # No matching rows
+    # -------------------------
+    
+    if (nrow(redsea_df) == 0) {
+      
+      warning(
+        paste(
+          "No Red Sea matches found for:",
+          table_name
+        )
+      )
+      
+      next
+    }
+    
+    
+    # -------------------------
+    # Store only tables with matches
+    # -------------------------
+    
     redsea_name <- paste0("redsea_", table_name)
     
-    
-    # Store in list
     redsea_tables[[redsea_name]] <- redsea_df
     
-    
-    # Create individual object
     assign(
       redsea_name,
       redsea_df,
@@ -1184,4 +1199,51 @@ discretize_traits <- function(data,
   
   
   return(data)
+}
+
+
+add_family_to_fish <- function(all_fish, fishbase_families) {
+  
+  all_fish %>%
+    left_join(
+      fishbase_families %>%
+        select(
+          all_of(FAM_CODE),
+          all_of(FAMILY)
+        ),
+      by = FAM_CODE
+    )
+}
+
+
+set_trait_classes <- function(df) {
+  
+  # Convert character traits
+  df <- df %>%
+    mutate(
+      across(
+        all_of(CHARACTER_TRAITS),
+        as.character
+      )
+    )
+  
+  # Convert categorical traits to factors
+  df <- df %>%
+    mutate(
+      across(
+        all_of(FACTOR_TRAITS),
+        as.factor
+      )
+    )
+  
+  # Convert continuous traits to numeric
+  df <- df %>%
+    mutate(
+      across(
+        all_of(NUMERIC_TRAITS),
+        as.numeric
+      )
+    )
+  
+  return(df)
 }
