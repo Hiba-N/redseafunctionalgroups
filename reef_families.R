@@ -90,28 +90,17 @@ all_reef_fish_final <- remove_high_na_columns(
 #deleting unnecessary columns (such as metadata) except for reference columns
 all_reef_fish_final <- remove_columns(
   all_reef_fish_final,
-  #META_COLUMNS_TO_REMOVE
+  META_COLUMNS_TO_REMOVE
+)
+
+all_reef_fish_final <- remove_columns(
+  all_reef_fish_final,
   ADDITIONAL_COLUMNS_TO_REMOVE
 )
 
 
 # Calculate missing percentage for all columns
 missing_data <- calculate_missing_percentage(all_reef_fish_final)
-
-
-#fixing a few random values
-all_reef_fish_final <- all_reef_fish_final %>%
-  mutate(
-    Resilience_matrix = ifelse(
-      tolower(trimws(Resilience_matrix)) == "please enter values for k, tmax.",
-      NA,
-      Resilience_matrix
-    )
-  )
-
-all_reef_fish_final$Electrogenic_species[
-  all_reef_fish_final$Electrogenic_species == "Electrosensing only"
-] <- "electrosensing only"
 
 table(
   all_reef_fish_final$BodyShapeI,
