@@ -123,6 +123,8 @@ ADDITIONAL_COLUMNS_TO_REMOVE <- c(
   "LMax_matrix",
   "LMax_type_matrix",
   "Linf_matrix",
+  "Linf_1st_matrix",
+  "Linf_2nd_matrix",
   "Linf_type_matrix",
   "K_matrix",
   "to_matrix",
@@ -253,7 +255,9 @@ ADDITIONAL_COLUMNS_TO_REMOVE <- c(
   "ComDepMinObserved_estimate",
   "ComDepMaxObserved_estimate",
   "DepthMinEstimate_estimate",
-  "DepthMaxEstimate_estimate"
+  "DepthMaxEstimate_estimate",
+  "PriceCateg_species",
+  "PriceCateg"
 )
 
 META_COLUMNS_TO_REMOVE <- c(

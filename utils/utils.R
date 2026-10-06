@@ -1215,14 +1215,32 @@ add_family_to_fish <- function(all_fish, fishbase_families) {
     )
 }
 
+add_species_to_fish <- function(all_fish, species) {
+  
+  all_fish %>%
+    left_join(
+      species %>%
+        select(
+          spec_code,
+          Species
+        ),
+      by = "spec_code"
+    )
+}
+
 
 set_trait_classes <- function(df) {
+  
+  # Only use columns that actually exist
+  character_cols <- intersect(CHARACTER_TRAITS, names(df))
+  factor_cols    <- intersect(FACTOR_TRAITS, names(df))
+  numeric_cols   <- intersect(NUMERIC_TRAITS, names(df))
   
   # Convert character traits
   df <- df %>%
     mutate(
       across(
-        all_of(CHARACTER_TRAITS),
+        all_of(character_cols),
         as.character
       )
     )
@@ -1231,7 +1249,7 @@ set_trait_classes <- function(df) {
   df <- df %>%
     mutate(
       across(
-        all_of(FACTOR_TRAITS),
+        all_of(factor_cols),
         as.factor
       )
     )
@@ -1240,7 +1258,7 @@ set_trait_classes <- function(df) {
   df <- df %>%
     mutate(
       across(
-        all_of(NUMERIC_TRAITS),
+        all_of(numeric_cols),
         as.numeric
       )
     )
